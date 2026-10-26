@@ -1,0 +1,120 @@
+LOS BASADOS — CONTEXTO Y RELEVO
+Actualizado: 26 de octubre de 2026
+
+CONTEXTO DE LA APLICACIÓN
+- Sitio de catálogo y comunidad hecho con React, TypeScript y Vite.
+- La interfaz nueva vive principalmente en src/ShowcaseApp.tsx y
+  src/showcase.css.
+- public/legacy.html y public/assets/js/main.js todavía gestionan la conexión a
+  Firebase y los flujos ya existentes: cuenta, moderación, juegos, noticias,
+  categorías, redes, reportes, reseñas, solicitudes y comunidad.
+- src/App.tsx monta el runtime legado de forma oculta y mantiene sus diálogos
+  para conectar la interfaz React con esos flujos. No retirar esa conexión sin
+  reemplazar la funcionalidad equivalente.
+
+ÚLTIMO ESTADO / PUNTO DE RELEVO
+- La ficha de juego nueva ya integra imagen, información, descarga, requisitos,
+  guía opcional y reseñas. La guía se modifica en el panel de moderación.
+- La lista de deseos y avisos de cambios están conectados.
+- En la última sesión se ocultó visualmente el HTML antiguo conservando el
+  runtime y se corrigió el origen de la animación de apertura de la ficha.
+- Se mejoró el encuadre de imágenes del hero y de la ficha para conservar la
+  proporción; se incorporó un botón de edición para moderadores en tarjetas y
+  noticias, mejoras responsive del formulario de solicitudes, créditos/redes
+  configurables en el footer y opción de descartar el indicador de dispositivo.
+- Se rediseñaron los estilos del panel de moderación: navegación por pestañas,
+  formularios, listas, controles y adaptación móvil; se mantuvo el motor heredado
+  para las operaciones y permisos existentes.
+- Próximo punto de relevo: revisión visual adicional del panel con cuenta real
+  de moderador y contenido real, y seguir refinando las demás vistas.
+- Validación de esta iteración: npm run build, npx tsc --noEmit y node --check
+  public/assets/js/main.js finalizaron bien. Navegador verificado a 360, 390,
+  768 y 1440 px; ficha y edición moderador probadas, solicitudes y panel de
+  moderación móvil sin overflow.
+- Se corrigió el nombre del creador a VAZE. El pie usa el sistema visual propio
+  (superficies, bordes y acento rojo) en lugar de copiar literalmente la
+  referencia, y se adapta a tema claro y oscuro.
+- Las seis redes editables del panel de moderación (Discord, Telegram, YouTube,
+  Instagram, TikTok y Facebook) son opcionales. Se quitaron las URLs genéricas
+  predeterminadas; solo se muestran enlaces http/https configurados, y las
+  URLs genéricas guardadas anteriormente se filtran como vacías.
+- Última validación: npm run build, npx tsc --noEmit y node --check
+  public/assets/js/main.js pasaron. Pie comprobado con/sin enlaces en tema
+  claro/oscuro y a 360, 768 y 1440 px, sin overflow horizontal.
+- Se eliminó src/refresh.css porque no estaba importado ni referenciado. La
+  raíz tiene un único index.html, entrada de Vite; public/legacy.html es una
+  plantilla interna necesaria, no un index duplicado. No mover ni retirar el
+  runtime legado sin reemplazar las integraciones que conserva.
+- GitHub Pages calcula la ruta base desde el nombre del repositorio y el
+  workflow publica al hacer push a main. Las compilaciones para un repo de
+  proyecto y un sitio <usuario>.github.io dieron las rutas esperadas. El
+  workspace aún no tiene repositorio Git ni remoto configurado; todavía no se
+  ha publicado el sitio.
+
+MIGRACIÓN DE MULTIMEDIA, AUTENTICACIÓN Y ADS (26 OCT 2026)
+- Firebase Storage se retiró de la aplicación y del SDK cargado por `src/App.tsx`.
+  Las imágenes y videos pasan por `server/media-api.js`, un servicio Node que
+  valida ID tokens Firebase Auth con correo verificado, restringe los scopes
+  `hero`/`ads` a moderadores configurados en el servidor y crea archivos en
+  `public/assets/uploads/<scope>/` usando GitHub Contents API. No guardar el
+  token GitHub en el frontend.
+- Configurar el servicio desde `.env.media-api.example`: `GITHUB_TOKEN`
+  (fine-grained, Contents: write), `GITHUB_OWNER`, `GITHUB_REPO`,
+  `GITHUB_BRANCH`, `PUBLIC_SITE_URL`, `FIREBASE_API_KEY`, `MODERATOR_EMAILS` y
+  `ALLOWED_ORIGINS`. Ejecutar con `npm run media-api`; definir
+  `VITE_MEDIA_API_URL` en el build del sitio. El repositorio de trabajo aún no
+  tiene remoto configurado: no es posible publicar archivos hasta vincular un
+  repositorio y desplegar el servicio con secretos exclusivos del servidor.
+- Los medios guardados en GitHub Pages son públicos, incluidos los enviados a
+  chats privados: el scope `private` solo organiza los archivos y no ofrece
+  control de acceso ni cifrado. No subir información sensible por este sistema.
+- Las cargas están limitadas a 8 MB y videos MP4/WebM de hasta 30 segundos
+  (duración comprobada en el cliente); no se transcodifican videos ni se
+  convierten a WebP, ya que WebP es un formato de imagen. JPEG/PNG se optimizan
+  en el navegador a WebP cuando el resultado ahorra espacio; GIF/WebP se
+  conservan. La API también comprueba firmas de contenido, autentica, limita
+  categorías, concurrencia y frecuencia.
+- El login/registro utiliza Firebase Authentication con correo/contraseña y
+  verificación de email. Al iniciar sesión se enlaza por email el perfil legado
+  (`usersRef`) conservando su ID y permisos; los perfiles nuevos quedan
+  pendientes en `pending_auth_profiles` hasta el primer login verificado. Los
+  usuarios existentes que todavía no tengan cuenta Firebase Auth deben volver
+  a registrarse con el correo de su perfil anterior.
+- El moderador edita el medio de hero desde el formulario de juegos. El hero
+  presenta la imagen estática inicialmente y carga/reproduce el video muted y
+  en loop solo al hover de ratón; al salir pausa y libera el `src`, con
+  transición de opacidad desde la portada.
+- El footer continúa editable desde `footer_content`. El panel incorpora la
+  pestaña Ads para crear, editar, activar/desactivar y eliminar anuncios,
+  definir destino, esquina y frecuencia en minutos. El anuncio flotante 9:16
+  aparece después del intervalo durante la sesión, abre la ficha del juego al
+  hacer clic y se cierra con un botón visible. El video solo se monta mientras
+  el anuncio está abierto, se pausa al ocultar la pestaña y libera su fuente al
+  desmontarse.
+- Los adjuntos de chat general, mensajes privados y comentarios se guardan en
+  sus scopes GitHub (`chat`, `private`, `comments`). Las imágenes son lazy y
+  los videos usan `preload=none`; la subida exige sesión Firebase verificada.
+- Auditoría de memoria previa: superficies temporales del canvas y URLs de
+  avatar se liberan; la música no se precarga al arrancar; el AudioContext de
+  interfaz se cierra al terminar; se evita crear listeners de documento por
+  cada reseña y se limita a 25 el conjunto de listeners de notificaciones DM.
+- Configuración de Firebase Storage eliminada (`firebase.json` y
+  `storage.rules`). `npm run build`, `npx tsc --noEmit`, `node --check
+  public/assets/js/main.js` y `node --check server/media-api.js` pasaron.
+  Smoke test local de `/health` y CORS permitió orígenes autorizados y rechazó
+  orígenes no listados. En navegador se verificó el hero y la existencia del
+  panel Ads/formulario. La subida a GitHub y los flujos con cuentas reales
+  quedan pendientes de configurar el repositorio, Firebase Auth y el backend.
+  No hay pruebas automatizadas configuradas en `package.json`.
+
+RESOLUCIONES RECOMENDADAS PARA IMÁGENES
+- Ficha de juego: 1200 x 1600 px, vertical 3:4; WebP o JPEG. Mantener personaje,
+  título y elementos importantes centrados para que el arte pueda adaptarse sin
+  recortes destructivos ni deformación.
+- Carrusel/hero de inicio: 1920 x 1080 px, horizontal 16:9; WebP o JPEG. Dejar
+  márgenes de seguridad alrededor del sujeto y comprobar el encuadre en móvil.
+- Revisar especialmente el arte de Rayman Legends en el hero; ajustar posición
+  por juego si es necesario.
+
+Al terminar cambios importantes, actualizar este archivo con el estado nuevo,
+el punto donde quedó el trabajo y cualquier recomendación vigente de imágenes.

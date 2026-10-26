@@ -1,0 +1,798 @@
+﻿
+
+    <!-- BADGE INDICADOR DE DISPOSITIVO -->
+    <button id="deviceBadge" class="device-badge" type="button" title="Ocultar indicador de dispositivo">
+        <i class="fas fa-desktop" id="deviceIcon"></i> <span id="deviceText">PC</span>
+    </button>
+
+    <!-- NAV BAR -->
+    <nav class="navbar">
+        <a href="#" class="logo">
+            <img src="assets/img/favicon.png" alt="Logo Los Basados">
+            <span>LOS <span style="color: var(--neon-red);">BASADOS</span></span>
+        </a>
+        
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Buscar juego, port, iso...">
+        </div>
+
+        <div class="nav-actions">
+            <!-- REPRODUCTOR MÚSICA BACKGROUND -->
+            <button class="icon-btn audio-toggle-btn" id="btnToggleAudio" title="Música / Sonido">
+                <i class="fas fa-music" id="audioIcon"></i>
+            </button>
+
+            <!-- BOTÓN PANEL ADMIN / MODERADOR -->
+            <button class="icon-btn admin-btn hidden" id="btnAdminPanel" title="Panel de Moderador">
+                <i class="fas fa-tools"></i>
+            </button>
+
+            <!-- BOTÓN USUARIOS EN LÍNEA / FORO -->
+            <button class="icon-btn online-btn" id="btnOnlineUsers" title="Comunidad & Usuarios en Línea">
+                <i class="fas fa-users"></i>
+                <span class="online-badge" id="onlineCount">0</span>
+            </button>
+            
+            <!-- NOTIFICACIONES (CENTRO DE ALERTAS) -->
+            <button class="icon-btn" id="btnNotif" title="Notificaciones & Alertas">
+                <i class="fas fa-bell"></i>
+                <span class="online-badge hidden" id="notifBadgeCount" style="background:var(--neon-red); color:#fff;">0</span>
+            </button>
+            
+            <!-- PERFIL / INGRESO -->
+            <button class="auth-btn" id="btnAuth">
+                <img id="userAvatarNav" src="https://api.dicebear.com/7.x/bottts/svg?seed=Esva" alt="Avatar" class="nav-avatar hidden">
+                <span id="userBtnText">Ingresar</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <div class="main-layout">
+        <main class="content">
+            <!-- HERO SLIDER / BANNER NOVEDAD -->
+            <section class="hero-banner" id="heroBanner">
+                <div class="hero-carousel" id="heroCarousel">
+                    <!-- Cargado dinámicamente -->
+                </div>
+            </section>
+
+            <!-- CATEGORÍAS Y SISTEMA DE FILTRADO Y ORDEN -->
+            <div class="categories-wrapper">
+                <div class="categories-container">
+                    <div class="categories-bar" id="categoriesBar">
+                        <!-- Cargado dinámicamente -->
+                    </div>
+
+                    <!-- BOTÓN DE DESPLEGABLE DE FILTROS Y ORDEN -->
+                    <div class="filter-dropdown-wrapper">
+                        <button type="button" class="btn-filter-trigger" id="btnToggleFilter">
+                            <i class="fas fa-filter"></i> FILTRAR <i class="fas fa-chevron-down arrow-icon"></i>
+                        </button>
+
+                        <!-- PANEL DESPLEGABLE DE FILTRADO -->
+                        <div class="filter-dropdown-menu" id="filterDropdownMenu">
+                            <div class="filter-group">
+                                <label><i class="fas fa-sort-amount-down"></i> Ordenar por:</label>
+                                <select id="sortSelect" class="custom-select-sm" onchange="applySorting()">
+                                    <option value="recent">⏱️ Más Recientes</option>
+                                    <option value="downloads">🔥 Más Descargados</option>
+                                    <option value="rating">⭐ Mejor Calificados</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label><i class="fas fa-laptop"></i> Plataforma / Sistema:</label>
+                                <select id="filterPlatform" class="custom-select-sm">
+                                    <option value="all">Todas las plataformas</option>
+                                    <option value="Windows">Windows / PC</option>
+                                    <option value="Android">Android / Móvil</option>
+                                    <option value="ISO">Archivos ISO / ROMs</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label><i class="fas fa-weight-hanging"></i> Tamaño / Peso:</label>
+                                <select id="filterSize" class="custom-select-sm">
+                                    <option value="all">Cualquier tamaño</option>
+                                    <option value="light">Ligero (&lt; 1 GB)</option>
+                                    <option value="medium">Medio (1 GB - 5 GB)</option>
+                                    <option value="heavy">Pesado (&gt; 5 GB)</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-group">
+                                <label><i class="fas fa-tags"></i> Género Específico:</label>
+                                <select id="filterGenreExtra" class="custom-select-sm">
+                                    <option value="all">Todos los géneros</option>
+                                </select>
+                            </div>
+
+                            <div class="filter-actions-row">
+                                <button type="button" class="btn-primary btn-sm full-width" onclick="applyAdvancedFilters()">APLICAR FILTROS</button>
+                                <button type="button" class="btn-secondary btn-sm full-width" onclick="resetAdvancedFilters()">LIMPIAR</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRID DE JUEGOS -->
+            <section class="games-section">
+                <h3 class="section-title">Catálogo Completo</h3>
+                <div class="games-grid" id="gamesGrid">
+                    <!-- Juegos dinámicos -->
+                </div>
+            </section>
+        </main>
+
+        <!-- SIDEBAR DE NOTICIAS, COMUNIDAD Y STREAM -->
+        <aside class="news-sidebar">
+            
+            <!-- BANNERS COMUNIDAD & REDES EDITABLES -->
+            <div class="community-banner-box">
+                <h4><i class="fas fa-users"></i> ÚNETE A LA COMUNIDAD</h4>
+                <div class="social-links-grid" id="communitySocialGrid">
+                    <!-- Cargado dinámicamente desde Firebase -->
+                </div>
+            </div>
+
+            <!-- SECCIÓN STREAM EN VIVO TWITCH -->
+            <div class="twitch-widget">
+                <div class="twitch-header">
+                    <h3 class="twitch-title"><i class="fab fa-twitch"></i> STREAM EN VIVO</h3>
+                    <span class="twitch-live-tag"><i class="fas fa-broadcast-tower"></i> VAZE_z06</span>
+                </div>
+                <div class="twitch-player-container">
+                    <iframe 
+                        src="https://player.twitch.tv/?channel=vaze_z06&parent=localhost&parent=127.0.0.1&muted=true" 
+                        allowfullscreen="true">
+                    </iframe>
+                </div>
+                <a href="https://www.twitch.tv/vaze_z06" target="_blank" class="twitch-channel-btn">
+                    <i class="fab fa-twitch"></i> IR AL CANAL DE TWITCH
+                </a>
+            </div>
+
+            <!-- NOTICIAS GAMING -->
+            <div class="news-header">
+                <h3 class="news-title"><i class="fas fa-newspaper"></i> Noticias & Updates</h3>
+            </div>
+            <div id="newsContainer">
+                <!-- Noticias dinámicas -->
+            </div>
+        </aside>
+    </div>
+
+    <!-- MODAL DE DESCARGA DE JUEGO -->
+    <div class="modal-overlay" id="gameModal">
+        <div class="modal-box game-modal-box">
+            <button class="modal-close" id="closeGameModal">&times;</button>
+            <div class="modal-game-content" id="gameModalContent">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PERFIL PÚBLICO / RED SOCIAL COMPLETA -->
+    <div class="modal-overlay" id="publicProfileModal">
+        <div class="modal-box text-center social-profile-modal">
+            <button class="modal-close" id="closePublicProfileModal">&times;</button>
+            
+            <div class="profile-preview-box">
+                <img id="publicAvatarImg" src="" alt="Avatar">
+            </div>
+            <h3 id="publicName" style="color: var(--neon-red); font-family: var(--font-head); margin-bottom: 2px;">-</h3>
+            <p id="publicRole" style="color: #00ff80; font-weight: bold; font-size: 0.85rem; margin-bottom: 8px;">Miembro Basado</p>
+
+            <!-- ACCIONES SOCIALES / EDITAR PERFIL -->
+            <div id="profileActionButtons" class="profile-action-buttons" style="margin-bottom:12px; display:flex; justify-content:center; gap:8px;">
+                <button type="button" id="btnEditProfileSettings" class="btn-secondary btn-sm hidden" onclick="openProfileModal()"><i class="fas fa-cog"></i> Configurar Perfil</button>
+                <button type="button" id="btnAddFriend" class="btn-primary btn-sm hidden" onclick="toggleAddFriend()"><i class="fas fa-user-plus"></i> Añadir Amigo</button>
+                <button type="button" id="btnOpenPrivateChat" class="btn-secondary btn-sm hidden" onclick="openPrivateChatFromProfile()"><i class="fas fa-paper-plane"></i> Mensaje Privado</button>
+            </div>
+
+            <div class="social-profile-tabs">
+                <button class="social-tab-btn active" id="btnTabScreenshots" onclick="switchSocialProfileTab('screenshots')"><i class="fas fa-images"></i> Muro / Capturas</button>
+                <button class="social-tab-btn" id="btnTabFriends" onclick="switchSocialProfileTab('friends')"><i class="fas fa-user-friends"></i> Amigos (<span id="profileFriendsCount">0</span>)</button>
+            </div>
+
+            <!-- CONTENIDO PESTAÑA 1: CAPTURAS / MURO -->
+            <div id="socialScreenshotsContent" class="social-tab-content active">
+                <div id="postScreenshotBox" class="post-screenshot-box hidden">
+                    <form id="formPostScreenshot">
+                        <input type="text" id="shotTitle" placeholder="¿Qué estás jugando o pensando hoy?..." required>
+                        <div class="upload-shot-row">
+                            <input type="file" id="shotFileInput" accept="image/png, image/jpeg, image/webp">
+                            <small style="color:#aaa; display:block; font-size:0.75rem;">Opcional: Adjuntar captura (Máx 1 MB - Autocomprimida)</small>
+                        </div>
+                        <button type="submit" class="btn-primary btn-sm full-width" style="margin-top:8px;"><i class="fas fa-cloud-upload-alt"></i> PUBLICAR EN EL MURO</button>
+                    </form>
+                </div>
+
+                <div class="screenshots-feed-grid" id="screenshotsFeedGrid">
+                    <!-- Publicaciones dinámicas -->
+                </div>
+            </div>
+
+            <!-- CONTENIDO PESTAÑA 2: AMIGOS -->
+            <div id="socialFriendsContent" class="social-tab-content hidden">
+                <div class="friends-list-container" id="friendsListContainer">
+                    <!-- Lista de amigos con estado Online/Offline -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CHAT PRIVADO (MENSAJES DIRECTOS CON HERRAMIENTAS INTERACTIVAS +) -->
+    <div class="modal-overlay" id="privateChatModal">
+        <div class="modal-box">
+            <button class="modal-close" id="closePrivateChatModal">&times;</button>
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; border-bottom:1px solid #222; padding-bottom:10px;">
+                <img id="privateChatTargetAvatar" src="" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid var(--neon-red);">
+                <div>
+                    <h3 id="privateChatTargetName" style="font-size:1rem; color:#fff; font-family:var(--font-head);">-</h3>
+                    <small style="color:#00ff80; font-size:0.75rem;">Chat Privado Seguro</small>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="privateChatMessages" style="height:280px; background:#09090e; padding:10px; border-radius:8px; border:1px solid #1f1f2a; margin-bottom:10px;">
+                <!-- Mensajes directos -->
+            </div>
+
+            <div class="chat-input-wrapper">
+                <form id="formPrivateChat" class="chat-input-area">
+                    <input type="text" id="privateChatInput" placeholder="Escribe un mensaje privado..." required autocomplete="off">
+                    
+                    <!-- BOTÓN MÁS (+) EN DM -->
+                    <div class="chat-more-container">
+                        <button type="button" class="btn-more-chat" id="privateChatMoreBtn" title="Adjuntar archivo, GIF o Emoji">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        
+                        <div class="chat-more-menu" id="privateChatMoreMenu">
+                            <button type="button" id="btnPrivateMenuImage"><i class="fas fa-photo-film"></i> Subir multimedia</button>
+                            <button type="button" id="btnPrivateMenuGiphy"><i class="fas fa-film"></i> Buscar GIF (Giphy)</button>
+                            <button type="button" id="btnPrivateMenuEmoji"><i class="far fa-smile"></i> Emojis</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary"><i class="fas fa-paper-plane"></i></button>
+                </form>
+
+                <input type="file" id="privateChatImageInput" accept="image/*,video/mp4,video/webm" style="display: none;">
+
+                <!-- POPOVER GIPHY Y EMOJI PARA DM -->
+                <div class="chat-popover hidden" id="privateGiphyPopover">
+                    <div class="popover-header">
+                        <span><i class="fas fa-film"></i> GIFs de Giphy (DM)</span>
+                        <button type="button" class="popover-close" id="closePrivateGiphyPopover">&times;</button>
+                    </div>
+                    <div class="popover-search">
+                        <input type="text" id="privateGiphySearchInput" placeholder="Buscar GIF...">
+                    </div>
+                    <div class="giphy-results-grid" id="privateGiphyResultsGrid"></div>
+                </div>
+
+                <div class="chat-popover hidden" id="privateEmojiPopover">
+                    <div class="popover-header">
+                        <span><i class="far fa-smile"></i> Seleccionar Emoji</span>
+                        <button type="button" class="popover-close" id="closePrivateEmojiPopover">&times;</button>
+                    </div>
+                    <div class="emoji-categories" id="privateEmojiCategories">
+                        <button type="button" data-cat="smileys" class="active">😀</button>
+                        <button type="button" data-cat="people">👋</button>
+                        <button type="button" data-cat="animals">🐻</button>
+                        <button type="button" data-cat="food">🍔</button>
+                        <button type="button" data-cat="activities">⚽</button>
+                        <button type="button" data-cat="travel">🚗</button>
+                        <button type="button" data-cat="objects">💡</button>
+                        <button type="button" data-cat="symbols">❤️</button>
+                    </div>
+                    <div class="emoji-grid" id="privateEmojiGrid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PANEL DE MODERADOR -->
+    <div class="modal-overlay" id="adminModal">
+        <div class="modal-box admin-modal-box">
+            <button class="modal-close" id="closeAdminModal">&times;</button>
+            <h3 style="color:var(--neon-red); font-family:var(--font-head); margin-bottom:15px;">
+                <i class="fas fa-tools"></i> Panel de Moderador
+            </h3>
+
+            <div class="admin-tabs">
+                <button class="tab-btn active" id="tabAdminGames" onclick="switchAdminTab('games')">🎮 Juegos</button>
+                <button class="tab-btn" id="tabAdminNews" onclick="switchAdminTab('news')">📰 Noticias</button>
+                <button class="tab-btn" id="tabAdminGenres" onclick="switchAdminTab('genres')">🏷️ Categorías</button>
+                <button class="tab-btn" id="tabAdminSocial" onclick="switchAdminTab('social')">🌐 Redes Sociales</button>
+                <button class="tab-btn" id="tabAdminFooter" onclick="switchAdminTab('footer')">🧾 Footer</button>
+                <button class="tab-btn" id="tabAdminAds" onclick="switchAdminTab('ads')">📺 Ads</button>
+                <button class="tab-btn" id="tabAdminReports" onclick="switchAdminTab('reports')">⚠️ Reportes (<span id="reportsBadgeCount">0</span>)</button>
+            </div>
+            
+            <!-- PESTAÑA 1: JUEGOS -->
+            <div id="contentAdminGames" class="admin-tab-content active">
+                <div class="search-box" style="margin-bottom: 15px; max-width: 100%;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="adminGameSearchInput" placeholder="Buscar juego en el panel para editar..." oninput="filterAdminGamesList()">
+                </div>
+
+                <form id="formAdminGame">
+                    <input type="hidden" id="adminGameId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Título del Juego</label>
+                            <input type="text" id="adminTitle" placeholder="Ej: Blur / Gang Beasts" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Géneros / Categorías <small style="color:#aaa;">(Ctrl + clic para varios)</small></label>
+                            <select id="adminCategory" class="custom-select" multiple size="4" required></select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tamaño General</label>
+                            <input type="text" id="adminSize" placeholder="Ej: 4.5 GB" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Servidor Principal</label>
+                            <input type="text" id="adminServer" placeholder="Ej: MediaFire" required>
+                        </div>
+                    </div>
+
+                    <!-- SUBIR FOTO DE JUEGO CON COMPRESIÓN MÁX 1MB -->
+                    <div class="form-group" style="background:#09090e; padding:10px; border-radius:8px; border:1px solid #222234;">
+                        <label><i class="fas fa-image" style="color:var(--neon-red);"></i> Imagen de Portada (Subir o URL)</label>
+                        <input type="file" id="adminImageFileInput" accept="image/png, image/jpeg, image/webp" style="margin-bottom:6px; font-size:0.8rem; color:#aaa;">
+                        <small style="color:#888; display:block; margin-bottom:6px;">Subir desde PC/Móvil (Auto-compresión a &lt; 1MB)</small>
+                        <input type="text" id="adminImage" placeholder="assets/img/juego.png o URL externa" required>
+                    </div>
+                    <div class="form-group" style="background:#09090e; padding:10px; border-radius:8px; border:1px solid #222234;">
+                        <label><i class="fas fa-photo-film" style="color:var(--neon-red);"></i> Visual del carrusel (imagen o video opcional)</label>
+                        <input type="file" id="adminHeroMediaFileInput" accept="image/*,video/mp4,video/webm" style="margin-bottom:6px; font-size:0.8rem; color:#aaa;">
+                        <input type="url" id="adminHeroMediaUrl" placeholder="https://... (imagen o video)">
+                        <input type="hidden" id="adminHeroMediaType" value="image">
+                        <small style="color:#888; display:block;">JPG/PNG se optimizan a WebP. Videos MP4/WebM: máximo 8 MB y 30 segundos; se reproducen en bucle al pasar el cursor.</small>
+                        <label for="adminHeroButtonLabel" style="margin-top:8px;">Texto del botón principal</label>
+                        <input type="text" id="adminHeroButtonLabel" maxlength="48" placeholder="VER VERSIONES Y DESCARGAR">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Restricción de Edad</label>
+                            <select id="adminAgeRestricted" class="custom-select" required>
+                                <option value="false">Para Todos</option>
+                                <option value="true">Solo Mayores de 18 Años (+18)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Estado Online / Multiplayer</label>
+                            <select id="adminOnlineStatus" class="custom-select">
+                                <option value="online">🟢 Online / Multiplayer Funcional</option>
+                                <option value="offline">🔴 Solo Modo Offline / Singleplayer</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Soporte de Mando / Gamepad</label>
+                        <select id="adminGamepadStatus" class="custom-select">
+                            <option value="true">🎮 Compatible con Mando / Gamepad</option>
+                            <option value="false">⌨️ Teclado y Ratón / Touch</option>
+                        </select>
+                    </div>
+
+                    <!-- SECCIÓN APARTE PARA FIX ONLINE -->
+                    <div class="fix-online-box-admin">
+                        <h4 style="color:#00ff80; margin-bottom:8px;"><i class="fas fa-plug"></i> Fix Online (Opcional)</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Servidor / Info del Fix</label>
+                                <input type="text" id="adminFixServer" placeholder="Ej: Fix Steam / Epic Online">
+                            </div>
+                            <div class="form-group">
+                                <label>Enlace de Descarga del Fix</label>
+                                <input type="url" id="adminFixUrl" placeholder="https://mediafire.com/file/fix.zip">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GESTIÓN DE VERSIONES -->
+                    <div class="versions-section-container">
+                        <div class="versions-header">
+                            <h4 style="color:var(--neon-red);"><i class="fas fa-code-branch"></i> Versiones del Juego</h4>
+                            <button type="button" class="btn-secondary btn-sm" id="btnAddVersionField">
+                                <i class="fas fa-plus-circle"></i> Agregar Versión
+                            </button>
+                        </div>
+                        
+                        <div id="versionsListContainer" class="versions-list-container">
+                            <!-- Filas dinámicas -->
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción</label>
+                        <textarea id="adminDesc" rows="3" class="custom-textarea" placeholder="De qué trata..." required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Guía de descarga e instalación (opcional)</label>
+                        <textarea id="adminGuide" rows="5" class="custom-textarea" placeholder="Pasos, notas del instalador, compatibilidad, solución de errores... (se muestra en la ficha del juego)"></textarea>
+                        <small style="color:#888;">Este contenido aparece junto a las versiones y requisitos del juego.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label" style="display:flex; align-items:center; gap:8px; cursor:pointer; color:#00ff80;">
+                            <input type="checkbox" id="adminFeatured" style="width:auto;"> 🌟 Mostrar en Carrusel
+                        </label>
+                    </div>
+
+                    <h4 style="color:#fff; margin: 15px 0 10px 0;">Requisitos del Sistema</h4>
+                    <div class="form-row">
+                        <div class="form-group"><input type="text" id="adminSo" placeholder="SO"></div>
+                        <div class="form-group"><input type="text" id="adminCpu" placeholder="CPU"></div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group"><input type="text" id="adminRam" placeholder="RAM"></div>
+                        <div class="form-group"><input type="text" id="adminGpu" placeholder="GPU"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Embed Tutorial / Demo</label>
+                        <textarea id="adminEmbed" rows="2" class="custom-textarea" placeholder='<iframe src="..."></iframe>'></textarea>
+                    </div>
+
+                    <div class="admin-actions">
+                        <button type="submit" class="btn-primary full-width" id="btnSaveAdminGame">GUARDAR CAMBIOS</button>
+                        <button type="button" class="btn-secondary full-width hidden" id="btnCancelEdit" style="background:#222; margin-top:8px;">CANCELAR</button>
+                    </div>
+                </form>
+
+                <h4 style="color:#fff; margin:20px 0 10px 0;">Lista de Juegos en Base de Datos:</h4>
+                <div id="adminGamesListContainer" class="admin-list-container"></div>
+            </div>
+
+            <!-- PESTAÑA 2: NOTICIAS -->
+            <div id="contentAdminNews" class="admin-tab-content hidden">
+                <form id="formAdminNews">
+                    <input type="hidden" id="newsId">
+                    <div class="form-group">
+                        <label>Título de la Noticia / Update</label>
+                        <input type="text" id="newsTitle" placeholder="Ej: Changelog v2.1 de la Web" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha</label>
+                        <input type="text" id="newsDate" placeholder="Ej: 15 SEPT, 2026" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Contenido</label>
+                        <textarea id="newsContent" rows="3" class="custom-textarea" required></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary full-width" id="btnSaveNews">GUARDAR NOTICIA</button>
+                    <button type="button" class="btn-secondary full-width hidden" id="btnCancelNewsEdit" style="background:#222; margin-top:8px;" onclick="resetNewsForm()">CANCELAR</button>
+                </form>
+
+                <h4 style="color:#fff; margin:20px 0 10px 0;">Noticias Publicadas:</h4>
+                <div id="adminNewsList" class="admin-list-container"></div>
+            </div>
+
+            <!-- PESTAÑA 3: CATEGORÍAS -->
+            <div id="contentAdminGenres" class="admin-tab-content hidden">
+                <form id="formAdminGenre">
+                    <div class="form-group">
+                        <label>Nombre de la Categoría</label>
+                        <input type="text" id="genreName" placeholder="Ej: Terror, Android, Windows, ISO, PSP" required>
+                    </div>
+                    <button type="submit" class="btn-primary full-width">AGREGAR CATEGORÍA</button>
+                </form>
+
+                <h4 style="color:#fff; margin:20px 0 10px 0;">Categorías Editables:</h4>
+                <div id="adminGenreList" class="genre-tags-list"></div>
+            </div>
+
+            <!-- PESTAÑA 4: REDES SOCIALES EDITABLES -->
+            <div id="contentAdminSocial" class="admin-tab-content hidden">
+                <form id="formAdminSocial">
+                    <div class="form-group">
+                        <label><i class="fab fa-discord" style="color:#5865F2;"></i> Link de Discord (opcional)</label>
+                        <input type="url" id="adminLinkDiscord" placeholder="https://discord.gg/tu-comunidad">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fab fa-telegram" style="color:#0088cc;"></i> Link de Telegram (opcional)</label>
+                        <input type="url" id="adminLinkTelegram" placeholder="https://t.me/tu-canal">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fab fa-youtube" style="color:#FF0000;"></i> Link de YouTube (opcional)</label>
+                        <input type="url" id="adminLinkYoutube" placeholder="https://youtube.com/@tu-canal">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fab fa-instagram" style="color:#E1306C;"></i> Link de Instagram (opcional)</label>
+                        <input type="url" id="adminLinkInstagram" placeholder="https://instagram.com/tu-usuario">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fab fa-tiktok" style="color:#00f2fe;"></i> Link de TikTok (opcional)</label>
+                        <input type="url" id="adminLinkTiktok" placeholder="https://tiktok.com/@tu-usuario">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fab fa-facebook" style="color:#1877F2;"></i> Link de Facebook (opcional)</label>
+                        <input type="url" id="adminLinkFacebook" placeholder="https://facebook.com/tu-pagina">
+                    </div>
+                    <button type="submit" class="btn-primary full-width">GUARDAR REDES SOCIALES</button>
+                </form>
+            </div>
+
+            <div id="contentAdminFooter" class="admin-tab-content hidden">
+                <form id="formAdminFooter">
+                    <div class="form-group"><label>Créditos</label><input type="text" id="adminFooterCredits" maxlength="180" required></div>
+                    <div class="form-group"><label>Lema institucional</label><input type="text" id="adminFooterTagline" maxlength="120" required></div>
+                    <div class="form-group"><label>Encabezado de comunidad</label><input type="text" id="adminFooterEyebrow" maxlength="80" required></div>
+                    <div class="form-group"><label>Título</label><input type="text" id="adminFooterTitle" maxlength="100" required></div>
+                    <div class="form-group"><label>Descripción</label><textarea id="adminFooterDescription" rows="3" maxlength="300" class="custom-textarea" required></textarea></div>
+                    <button type="submit" class="btn-primary full-width">GUARDAR PIE DE PÁGINA</button>
+                </form>
+            </div>
+
+            <div id="contentAdminAds" class="admin-tab-content hidden">
+                <form id="formAdminAd">
+                    <input type="hidden" id="adminAdId">
+                    <div class="form-group"><label>Nombre del anuncio</label><input type="text" id="adminAdTitle" maxlength="80" required></div>
+                    <div class="form-group">
+                        <label>Video vertical (MP4/WebM, máximo 8 MB y 30 segundos)</label>
+                        <input type="file" id="adminAdVideoFile" accept="video/mp4,video/webm">
+                        <input type="url" id="adminAdVideoUrl" placeholder="URL pública del video" required>
+                    </div>
+                    <div class="form-group"><label>Juego o aplicación de destino</label><select id="adminAdGameId" class="custom-select" required></select></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Ubicación</label>
+                            <select id="adminAdPosition" class="custom-select">
+                                <option value="top-right">Superior derecha</option>
+                                <option value="top-left">Superior izquierda</option>
+                                <option value="bottom-right">Inferior derecha</option>
+                                <option value="bottom-left">Inferior izquierda</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Frecuencia (minutos)</label><input type="number" id="adminAdInterval" min="1" max="1440" value="30" required></div>
+                    </div>
+                    <label class="checkbox-label" style="display:flex; align-items:center; gap:8px; margin:10px 0; color:#00ff80;">
+                        <input type="checkbox" id="adminAdActive" checked style="width:auto;"> Anuncio activo
+                    </label>
+                    <div class="admin-actions">
+                        <button type="submit" class="btn-primary full-width" id="btnSaveAdminAd">GUARDAR ANUNCIO</button>
+                        <button type="button" class="btn-secondary full-width hidden" id="btnCancelAdminAd" style="background:#222; margin-top:8px;">CANCELAR EDICIÓN</button>
+                    </div>
+                </form>
+                <h4 style="color:#fff; margin:20px 0 10px;">Anuncios configurados:</h4>
+                <div id="adminAdsList" class="admin-list-container"></div>
+            </div>
+
+            <!-- PESTAÑA 5: REPORTES DE ENLACES -->
+            <div id="contentAdminReports" class="admin-tab-content hidden">
+                <h4 style="color:#fff; margin-bottom:12px;">Enlaces Caídos Reportados por Usuarios:</h4>
+                <div id="adminReportsList" class="admin-list-container"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL LOGIN / REGISTRO -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-box">
+            <button class="modal-close" id="closeAuthModal">&times;</button>
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tabLogin">Iniciar Sesión</button>
+                <button class="auth-tab" id="tabRegister">Registrarse</button>
+            </div>
+
+            <form id="formLogin" class="auth-form active">
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="loginEmail" placeholder="tu@correo.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="loginPass" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn-primary full-width">ENTRAR</button>
+            </form>
+
+            <form id="formRegister" class="auth-form">
+                <div class="form-group">
+                    <label>Nombre de Usuario</label>
+                    <input type="text" id="regUser" placeholder="Tu Nick / ESVA" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha de Nacimiento</label>
+                    <input type="date" id="regBirthdate" required>
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" id="regEmail" placeholder="tu@correo.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="regPass" placeholder="Mínimo 8 caracteres" minlength="8" autocomplete="new-password" required>
+                </div>
+                <button type="submit" class="btn-primary full-width">CREAR CUENTA</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIGURACIÓN / EDITAR PERFIL DE USUARIO -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-box">
+            <button class="modal-close" id="closeProfileModal">&times;</button>
+            <h3><i class="fas fa-user-cog"></i> Configuración de Perfil</h3>
+            
+            <div class="profile-preview-box">
+                <img id="profileAvatarPreview" src="" alt="Avatar">
+            </div>
+
+            <form id="formProfile">
+                <div class="form-group">
+                    <label>Cambiar Apodo</label>
+                    <input type="text" id="profileNickname" placeholder="Tu nuevo apodo" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha de Nacimiento</label>
+                    <input type="date" id="profileBirthdate" required>
+                </div>
+                <div class="form-group">
+                    <label>Estado de Edad</label>
+                    <input type="text" id="profileAgeBadge" readonly style="background:#181824; color:var(--neon-red); font-weight:bold; cursor:not-allowed;">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-upload"></i> Subir Foto desde tu Dispositivo (optimizada a WebP, máx. 10 MB)</label>
+                    <input type="file" id="profileAvatarFile" accept="image/png, image/jpeg, image/webp" style="background:#181824; padding:6px; font-size:0.8rem;">
+                </div>
+                <div class="form-group">
+                    <label>O colocar URL de Imagen</label>
+                    <input type="url" id="profileAvatarUrl" placeholder="https://...">
+                </div>
+                <div class="avatar-presets">
+                    <label>Elegir Avatar Rápido:</label>
+                    <div class="preset-grid">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Cyber" onclick="selectPresetAvatar(this.src)">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Gamer" onclick="selectPresetAvatar(this.src)">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Basado" onclick="selectPresetAvatar(this.src)">
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Esva" onclick="selectPresetAvatar(this.src)">
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary full-width" style="margin-top: 15px;">GUARDAR CAMBIOS</button>
+                <button type="button" class="btn-secondary full-width" id="btnLogout" style="margin-top: 10px; background:#222; color:#ff4444; border:1px solid #444;">CERRAR SESIÓN</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL FORO & CHAT CON PESTAÑAS (CHAT Y SOLICITUDES) -->
+    <div class="modal-overlay" id="onlineModal">
+        <div class="modal-box forum-modal-box">
+            <button class="modal-close" id="closeOnlineModal">&times;</button>
+            
+            <div class="forum-header">
+                <h3><i class="fas fa-comments"></i> Comunidad <span>LOS BASADOS</span></h3>
+                <div class="forum-tabs-btns">
+                    <button class="tab-btn active" id="btnTabChat" onclick="switchForumTab('chat')">💬 Chat General</button>
+                    <button class="tab-btn" id="btnTabRequests" onclick="switchForumTab('requests')">📌 Pedir Juego</button>
+                </div>
+                <span class="online-indicator"><i class="fas fa-circle"></i> <span id="onlineCountModal">0</span> Conectados</span>
+            </div>
+
+            <!-- CONTENIDO PESTAÑA CHAT GENERAL -->
+            <div id="forumChatContent" class="forum-layout">
+                <div class="online-users-sidebar">
+                    <h4>Conectados</h4>
+                    <ul class="users-list" id="onlineUsersList"></ul>
+                </div>
+
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages"></div>
+
+                    <div class="chat-input-wrapper">
+                        <form id="formChat" class="chat-input-area">
+                            <input type="text" id="chatInput" placeholder="Escribe un mensaje..." required autocomplete="off">
+                            
+                            <!-- BOTÓN DESPLEGABLE (+) -->
+                            <div class="chat-more-container">
+                                <button type="button" class="btn-more-chat" id="chatMoreBtn" title="Adjuntar archivo, GIF o Emoji">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                
+                                <div class="chat-more-menu" id="chatMoreMenu">
+                                    <button type="button" id="btnMenuImage"><i class="fas fa-photo-film"></i> Subir multimedia</button>
+                                    <button type="button" id="btnMenuGiphy"><i class="fas fa-film"></i> Buscar GIF (Giphy)</button>
+                                    <button type="button" id="btnMenuEmoji"><i class="far fa-smile"></i> Emojis</button>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary"><i class="fas fa-paper-plane"></i></button>
+                        </form>
+
+                        <input type="file" id="chatImageInput" accept="image/*,video/mp4,video/webm" style="display: none;">
+
+                        <!-- POPOVER BUSCADOR GIPHY -->
+                        <div class="chat-popover hidden" id="giphyPopover">
+                            <div class="popover-header">
+                                <span><i class="fas fa-film"></i> GIFs de Giphy</span>
+                                <button type="button" class="popover-close" id="closeGiphyPopover">&times;</button>
+                            </div>
+                            <div class="popover-search">
+                                <input type="text" id="giphySearchInput" placeholder="Buscar GIF...">
+                            </div>
+                            <div class="giphy-results-grid" id="giphyResultsGrid"></div>
+                        </div>
+
+                        <!-- POPOVER SELECCIÓN EMOJIS -->
+                        <div class="chat-popover hidden" id="emojiPopover">
+                            <div class="popover-header">
+                                <span><i class="far fa-smile"></i> Seleccionar Emoji</span>
+                                <button type="button" class="popover-close" id="closeEmojiPopover">&times;</button>
+                            </div>
+                            <div class="emoji-categories" id="emojiCategories">
+                                <button type="button" data-cat="smileys" class="active">😀</button>
+                                <button type="button" data-cat="people">👋</button>
+                                <button type="button" data-cat="animals">🐻</button>
+                                <button type="button" data-cat="food">🍔</button>
+                                <button type="button" data-cat="activities">⚽</button>
+                                <button type="button" data-cat="travel">🚗</button>
+                                <button type="button" data-cat="objects">💡</button>
+                                <button type="button" data-cat="symbols">❤️</button>
+                            </div>
+                            <div class="emoji-grid" id="emojiGrid"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTENIDO PESTAÑA SOLICITUDES DE JUEGOS -->
+            <div id="forumRequestsContent" class="requests-layout hidden">
+                <form id="formGameRequest" class="request-form">
+                    <h4><i class="fas fa-plus-circle"></i> Solicitar un Juego / Port Nuevo</h4>
+                    <div class="form-row">
+                        <input type="text" id="reqGameTitle" placeholder="Nombre del Juego (Ej: GTA Vice City Port)" required>
+                        <select id="reqPlatform" class="custom-select-sm">
+                            <option value="PC Windows">PC Windows</option>
+                            <option value="Android Mobile">Android Mobile</option>
+                            <option value="ISO / ROM">ISO / ROM</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary btn-sm" style="margin-top:8px;">PUBLICAR SOLICITUD</button>
+                </form>
+
+                <section class="requests-feed">
+                    <h4>Peticiones de la Comunidad</h4>
+                    <div class="requests-list" id="requestsContainer"></div>
+                </section>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL CENTRO DE NOTIFICACIONES Y ALERTAS EN TIEMPO REAL -->
+    <div class="modal-overlay" id="notifModal">
+        <div class="modal-box" style="max-width:500px;">
+            <button class="modal-close" id="closeNotifModal">&times;</button>
+            <h3 style="color:var(--neon-red); font-family:var(--font-head); margin-bottom:12px;">
+                <i class="fas fa-bell"></i> Centro de Notificaciones
+            </h3>
+            
+            <div class="notif-feed-container" id="notifFeedContainer" style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:15px; background:#08080d; padding:10px; border-radius:8px; border:1px solid #1f1f2e;">
+                <!-- Feed de notificaciones en vivo -->
+            </div>
+
+            <hr style="border:0; border-top:1px solid #222; margin:15px 0;">
+            <h4 style="color:#fff; font-size:0.85rem; margin-bottom:8px;"><i class="fas fa-envelope"></i> Suscribirse a Alertas por Correo</h4>
+            <form id="formNotif">
+                <div class="form-group">
+                    <input type="email" id="notifEmail" placeholder="tu@correo.com" required>
+                </div>
+                <button type="submit" class="btn-primary full-width btn-sm">ACTIVAR SUSCRIPCIÓN</button>
+            </form>
+        </div>
+    </div>
