@@ -703,47 +703,60 @@ function validateVideoUrlDuration(url) {
     });
 }
 
-async function uploadMediaFile(file, folder) {
-    const isImage = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type);
-    const isVideo = file.type.startsWith('video/');
-    if (!isImage && !isVideo) throw new Error("Selecciona una imagen o un video compatible.");
+async function uploadImageFile(file) {
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+        throw new Error("Selecciona una imagen JPG, PNG, WebP o GIF.");
+    }
     if (file.size > 8 * 1024 * 1024) {
         throw new Error("El archivo supera el límite de 8 MB. Reduce su tamaño antes de subirlo.");
     }
-    if (isVideo && !['video/mp4', 'video/webm'].includes(file.type)) {
+    const optimizedBlob = file.type === 'image/gif' ? file : await compressImageToWebp(file);
+    const blob = optimizedBlob.size < file.size ? optimizedBlob : file;
+    if (blob.size > 1024 * 1024) {
+        throw new Error("La imagen optimizada supera 1 MB. Reduce su tamaño antes de subirla.");
+    }
+    const url = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error || new Error("No se pudo leer la imagen seleccionada."));
+        reader.readAsDataURL(blob);
+    });
+    return { url, type: 'image' };
+}
+
+async function uploadVideoFile(file, folder) {
+    if (!['video/mp4', 'video/webm'].includes(file.type)) {
         throw new Error("Formato no compatible. Usa MP4 o WebM.");
     }
-    if (isVideo) await validateVideoDuration(file);
-
+    if (file.size > 8 * 1024 * 1024) {
+        throw new Error("El archivo supera el límite de 8 MB. Reduce su tamaño antes de subirlo.");
+    }
+    await validateVideoDuration(file);
     const user = auth.currentUser;
-    if (!user || !user.emailVerified) throw new Error("Inicia sesión con un correo verificado para subir archivos.");
+    if (!user || !user.emailVerified) throw new Error("Inicia sesión con un correo verificado para subir videos.");
     const apiUrl = window.__LOS_BASADOS_MEDIA_API__;
-    if (!apiUrl) throw new Error("El servicio seguro de archivos no está configurado (VITE_MEDIA_API_URL).");
-
-    const canConvertToWebp = file.type === 'image/jpeg' || file.type === 'image/png';
-    const optimizedBlob = canConvertToWebp ? await compressImageToWebp(file) : file;
-    const useWebp = canConvertToWebp && optimizedBlob.type === 'image/webp' && optimizedBlob.size < file.size;
-    const blob = useWebp ? optimizedBlob : file;
+    if (!apiUrl) throw new Error("El servicio seguro de videos no está configurado (VITE_MEDIA_API_URL).");
     const token = await user.getIdToken();
     const response = await fetch(`${apiUrl.replace(/\/+$/, '')}/api/media`, {
         method: 'POST',
         headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': useWebp ? 'image/webp' : file.type,
+            'Content-Type': file.type,
             'X-Media-Scope': folder
         },
-        body: blob
+        body: file
     });
     if (!response.ok) {
         const result = await response.json().catch(() => ({}));
-        throw new Error(result.error || `El servicio de archivos respondió ${response.status}.`);
+        throw new Error(result.error || `El servicio de videos respondió ${response.status}.`);
     }
     const result = await response.json();
-    return { url: result.url, type: isImage ? 'image' : 'video' };
+    return { url: result.url, type: 'video' };
 }
 
 function uploadAndSendMedia(file, targetFirebaseRef, isDM = false, rating = null, scope = isDM ? 'private' : 'chat') {
-    uploadMediaFile(file, scope)
+    const upload = file.type.startsWith('video/') ? uploadVideoFile(file, scope) : uploadImageFile(file);
+    upload
         .then(({ url, type }) => {
             const message = isDM
                 ? { sender: currentUser ? currentUser.name : "Invitado", text: '', mediaUrl: url, mediaType: type, timestamp: Date.now() }
@@ -2301,8 +2314,7 @@ document.getElementById('adminAdVideoFile').addEventListener('change', async (ev
     const file = input.files[0];
     if (!file) return;
     try {
-        const { url, type } = await uploadMediaFile(file, 'ads');
-        if (type !== 'video') throw new Error('Los anuncios requieren un archivo de video.');
+        const { url } = await uploadVideoFile(file, 'ads');
         document.getElementById('adminAdVideoUrl').value = url;
     } catch (error) {
         console.error('No se pudo cargar el video del anuncio', error);
@@ -2451,7 +2463,7 @@ document.getElementById('adminImageFileInput').addEventListener('change', async 
     const file = e.target.files[0];
     if (!file) return;
     try {
-        const { url } = await uploadMediaFile(file, 'hero');
+        const { url } = await uploadImageFile(file);
         document.getElementById('adminImage').value = url;
     } catch (error) {
         console.error("No se pudo cargar la portada", error);
@@ -2465,7 +2477,9 @@ document.getElementById('adminHeroMediaFileInput').addEventListener('change', as
     const file = e.target.files[0];
     if (!file) return;
     try {
-        const { url, type } = await uploadMediaFile(file, 'hero');
+        const { url, type } = file.type.startsWith('video/')
+            ? await uploadVideoFile(file, 'hero')
+            : await uploadImageFile(file);
         document.getElementById('adminHeroMediaUrl').value = url;
         document.getElementById('adminHeroMediaType').value = type;
     } catch (error) {
@@ -2854,7 +2868,7 @@ function setupEventListeners() {
                 alert("⚠️ La imagen supera el peso máximo de 500 KB.");
                 return;
             }
-            uploadMediaFile(file, 'avatars')
+            uploadImageFile(file)
                 .then(({ url }) => processSave(url))
                 .catch((error) => {
                     console.error("No se pudo subir el avatar", error);

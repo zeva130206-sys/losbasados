@@ -24,14 +24,10 @@ const uploadsByUser = new Map();
 let concurrentUploads = 0;
 
 const mimeExtensions = new Map([
-  ["image/webp", "webp"],
-  ["image/jpeg", "jpg"],
-  ["image/png", "png"],
-  ["image/gif", "gif"],
   ["video/mp4", "mp4"],
   ["video/webm", "webm"],
 ]);
-const allowedScopes = new Set(["chat", "private", "comments", "hero", "ads", "avatars"]);
+const allowedScopes = new Set(["chat", "private", "comments", "hero", "ads"]);
 
 function send(response, status, data) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
@@ -78,10 +74,6 @@ async function verifyFirebaseUser(request) {
 }
 
 function matchesSignature(buffer, mime) {
-  if (mime === "image/jpeg") return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  if (mime === "image/png") return buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-  if (mime === "image/gif") return buffer.subarray(0, 6).toString("ascii").startsWith("GIF8");
-  if (mime === "image/webp") return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
   if (mime === "video/mp4") return buffer.subarray(4, 8).toString("ascii") === "ftyp";
   if (mime === "video/webm") return buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
   return false;
@@ -91,7 +83,9 @@ async function handleUpload(request, response, user) {
   const scope = request.headers["x-media-scope"];
   const mime = (request.headers["content-type"] || "").split(";")[0].toLowerCase();
   const extension = mimeExtensions.get(mime);
-  if (!allowedScopes.has(scope) || !extension) return send(response, 400, { error: "Tipo de archivo o categoría no permitidos." });
+  if (!allowedScopes.has(scope) || !mime.startsWith("video/") || !extension) {
+    return send(response, 400, { error: "Este servicio solo recibe videos MP4 o WebM." });
+  }
   if (["hero", "ads"].includes(scope) && !moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar este recurso." });
   if (concurrentUploads >= maxConcurrentUploads) return send(response, 503, { error: "Hay demasiadas subidas simultáneas. Inténtalo de nuevo." });
 

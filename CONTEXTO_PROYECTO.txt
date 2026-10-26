@@ -53,20 +53,20 @@ CONTEXTO DE LA APLICACIÓN
   URL de recursos coincida con la ruta del repositorio y volver a desplegar.
 
 MIGRACIÓN DE MULTIMEDIA, AUTENTICACIÓN Y ADS (26 OCT 2026)
-- Firebase Storage se retiró de la aplicación y del SDK cargado por `src/App.tsx`.
-  Las imágenes y videos pasan por `server/media-api.js`, un servicio Node que
-  valida ID tokens Firebase Auth con correo verificado, restringe los scopes
-  `hero`/`ads` a moderadores configurados en el servidor y crea archivos en
-  `public/assets/uploads/<scope>/` usando GitHub Contents API. No guardar el
+- Las imágenes se comprimen y guardan como data URLs en Firebase Realtime
+  Database (máximo 1 MB por archivo); los videos pasan por `server/media-api.js`,
+  que valida ID tokens Firebase Auth con correo verificado, restringe los
+  scopes `hero`/`ads` a moderadores configurados en el servidor y crea archivos
+  en `public/assets/uploads/<scope>/` usando GitHub Contents API. No guardar el
   token GitHub en el frontend.
 - Configurar el servicio desde `.env.media-api.example`: `GITHUB_TOKEN`
   (fine-grained, Contents: write), `GITHUB_OWNER`, `GITHUB_REPO`,
   `GITHUB_BRANCH`, `PUBLIC_SITE_URL`, `FIREBASE_API_KEY`, `MODERATOR_EMAILS` y
   `ALLOWED_ORIGINS`. Ejecutar con `npm run media-api`; definir
-  `VITE_MEDIA_API_URL` en el build del sitio. El repositorio de trabajo aún no
-  tiene remoto configurado: no es posible publicar archivos hasta vincular un
-  repositorio y desplegar el servicio con secretos exclusivos del servidor.
-- Los medios guardados en GitHub Pages son públicos, incluidos los enviados a
+  `VITE_MEDIA_API_URL` en el build del sitio. El repositorio está vinculado a
+  GitHub; la API todavía requiere desplegarse con secretos exclusivos del
+  servidor.
+- Los videos guardados en GitHub Pages son públicos, incluidos los enviados a
   chats privados: el scope `private` solo organiza los archivos y no ofrece
   control de acceso ni cifrado. No subir información sensible por este sistema.
 - Las cargas están limitadas a 8 MB y videos MP4/WebM de hasta 30 segundos
@@ -92,15 +92,16 @@ MIGRACIÓN DE MULTIMEDIA, AUTENTICACIÓN Y ADS (26 OCT 2026)
   hacer clic y se cierra con un botón visible. El video solo se monta mientras
   el anuncio está abierto, se pausa al ocultar la pestaña y libera su fuente al
   desmontarse.
-- Los adjuntos de chat general, mensajes privados y comentarios se guardan en
-  sus scopes GitHub (`chat`, `private`, `comments`). Las imágenes son lazy y
-  los videos usan `preload=none`; la subida exige sesión Firebase verificada.
+- Los videos de chat general, mensajes privados y comentarios se guardan en
+  sus scopes GitHub (`chat`, `private`, `comments`); las imágenes se guardan
+  comprimidas en Realtime Database. Las imágenes son lazy y los videos usan
+  `preload=none`.
 - Auditoría de memoria previa: superficies temporales del canvas y URLs de
   avatar se liberan; la música no se precarga al arrancar; el AudioContext de
   interfaz se cierra al terminar; se evita crear listeners de documento por
   cada reseña y se limita a 25 el conjunto de listeners de notificaciones DM.
-- Configuración de Firebase Storage eliminada (`firebase.json` y
-  `storage.rules`). `npm run build`, `npx tsc --noEmit`, `node --check
+- Firebase Storage no se usa; las imágenes se guardan en Realtime Database.
+  `npm run build`, `npx tsc --noEmit`, `node --check
   public/assets/js/main.js` y `node --check server/media-api.js` pasaron.
   Smoke test local de `/health` y CORS permitió orígenes autorizados y rechazó
   orígenes no listados. En navegador se verificó el hero y la existencia del

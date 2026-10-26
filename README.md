@@ -22,7 +22,7 @@ Si el repositorio no se llama `<usuario>.github.io`, la dirección publicada nor
 
 ## Subida de imágenes y videos
 
-La web de GitHub Pages no puede ejecutar el servicio Node que guarda archivos en el repositorio. Para habilitar las subidas, despliega la API incluida en `server/media-api.js` en Render:
+Las imágenes se guardan comprimidas (máximo 1 MB) en Firebase Realtime Database, como las capturas del muro. Solo los videos pasan por la API Node de `server/media-api.js`, porque GitHub Pages no puede ejecutar ese servicio:
 
 1. En Render, crea un **Blueprint** desde el repositorio `zeva130206-sys/losbasados` y confirma el despliegue de `render.yaml`.
 2. Cuando Render solicite los valores secretos, introduce `FIREBASE_API_KEY` (la clave web de la app en Firebase Console → Project settings → General) y un `GITHUB_TOKEN`. Crea el token fine-grained con acceso únicamente a este repositorio y permiso **Contents: Read and write**. No pongas el token en archivos del proyecto ni lo compartas por chat.
@@ -30,7 +30,7 @@ La web de GitHub Pages no puede ejecutar el servicio Node que guarda archivos en
 4. En GitHub, abre **Settings → Secrets and variables → Actions → New repository secret**. Crea `VITE_MEDIA_API_URL` con la URL de Render, sin `/` al final.
 5. En GitHub, abre **Actions → Deploy to GitHub Pages → Run workflow** para reconstruir la web con esa URL.
 
-El Blueprint ya define el repositorio, la rama, el origen de GitHub Pages y los correos moderadores actuales. Render Free puede tardar en despertar tras un periodo sin uso. Las subidas siguen requiriendo iniciar sesión con un correo verificado; los medios publicados son accesibles públicamente.
+El Blueprint ya define el repositorio, la rama, el origen de GitHub Pages y los correos moderadores actuales. Render Free puede tardar en despertar tras un periodo sin uso. La API de Render recibe solo videos y requiere una sesión con correo verificado; los archivos publicados son accesibles públicamente.
 
 ## Componentes shadcn/ui
 
