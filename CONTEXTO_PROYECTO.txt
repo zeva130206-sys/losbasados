@@ -45,11 +45,12 @@ CONTEXTO DE LA APLICACIÓN
   raíz tiene un único index.html, entrada de Vite; public/legacy.html es una
   plantilla interna necesaria, no un index duplicado. No mover ni retirar el
   runtime legado sin reemplazar las integraciones que conserva.
-- GitHub Pages calcula la ruta base desde el nombre del repositorio y el
-  workflow publica al hacer push a main. Las compilaciones para un repo de
-  proyecto y un sitio <usuario>.github.io dieron las rutas esperadas. El
-  workspace aún no tiene repositorio Git ni remoto configurado; todavía no se
-  ha publicado el sitio.
+- El workflow de GitHub Pages compila al hacer push a `main`. Vite toma la ruta
+  base del nombre de repositorio en Actions (`/<repo>/`) y usa `/` para un sitio
+  `<usuario>.github.io` o para desarrollo local. Se verificó el build del repo
+  `zeva130206-sys/losbasados`; sus recursos salen bajo `/losbasados/assets/`.
+  Si aparece un 404 de módulo con tipo MIME `text/html`, revisar primero que la
+  URL de recursos coincida con la ruta del repositorio y volver a desplegar.
 
 MIGRACIÓN DE MULTIMEDIA, AUTENTICACIÓN Y ADS (26 OCT 2026)
 - Firebase Storage se retiró de la aplicación y del SDK cargado por `src/App.tsx`.
