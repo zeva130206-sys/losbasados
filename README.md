@@ -20,6 +20,18 @@ No subas `node_modules/` ni `dist/`: son dependencias y archivos de compilación
 
 Si el repositorio no se llama `<usuario>.github.io`, la dirección publicada normalmente tendrá la forma `https://<usuario>.github.io/<repositorio>/`. La URL exacta aparece en la ejecución del workflow y en **Settings → Pages**.
 
+## Subida de imágenes y videos
+
+La web de GitHub Pages no puede ejecutar el servicio Node que guarda archivos en el repositorio. Para habilitar las subidas, despliega la API incluida en `server/media-api.js` en Render:
+
+1. En Render, crea un **Blueprint** desde el repositorio `zeva130206-sys/losbasados` y confirma el despliegue de `render.yaml`.
+2. Cuando Render solicite los valores secretos, introduce `FIREBASE_API_KEY` (la clave web de la app en Firebase Console → Project settings → General) y un `GITHUB_TOKEN`. Crea el token fine-grained con acceso únicamente a este repositorio y permiso **Contents: Read and write**. No pongas el token en archivos del proyecto ni lo compartas por chat.
+3. Espera a que el servicio `losbasados-media-api` termine el despliegue. Copia su URL pública, por ejemplo `https://losbasados-media-api.onrender.com`.
+4. En GitHub, abre **Settings → Secrets and variables → Actions → New repository secret**. Crea `VITE_MEDIA_API_URL` con la URL de Render, sin `/` al final.
+5. En GitHub, abre **Actions → Deploy to GitHub Pages → Run workflow** para reconstruir la web con esa URL.
+
+El Blueprint ya define el repositorio, la rama, el origen de GitHub Pages y los correos moderadores actuales. Render Free puede tardar en despertar tras un periodo sin uso. Las subidas siguen requiriendo iniciar sesión con un correo verificado; los medios publicados son accesibles públicamente.
+
 ## Componentes shadcn/ui
 
 El proyecto está preparado con `components.json`, Tailwind y el alias `@/`. El botón inicial está en `src/components/ui/button.tsx`. Para añadir más componentes, usa `npx shadcn@latest add <componente>`.

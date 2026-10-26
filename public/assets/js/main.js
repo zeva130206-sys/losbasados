@@ -199,7 +199,8 @@ let carouselTimer = null;
 const MODERATOR_EMAILS = [
     "esva@losbasados.com",
     "jesuslazarinos0@gmail.com",
-    "cargoso@gmail.com"
+    "cargoso@gmail.com",
+    "zeva130206@gmail.com"
 ];
 
 // ELEMENTOS DOM
@@ -2727,7 +2728,7 @@ function setupEventListeners() {
             if (!credential.user.emailVerified) {
                 await credential.user.sendEmailVerification();
                 await auth.signOut();
-                alert("Verifica tu correo desde el enlace que te enviamos y luego inicia sesión de nuevo.");
+                alert("Verifica tu correo desde el enlace que te enviamos. Revisa Recibidos y también Spam o Correo no deseado; después inicia sesión de nuevo.");
                 return;
             }
 
@@ -2784,6 +2785,11 @@ function setupEventListeners() {
         const birthdate = document.getElementById('regBirthdate').value;
         const email = document.getElementById('regEmail').value.trim().toLowerCase();
         const password = document.getElementById('regPass').value;
+        const emailDomain = email.slice(email.lastIndexOf('@') + 1);
+        if (!['gmail.com', 'hotmail.com'].includes(emailDomain)) {
+            alert("Para crear una cuenta, usa un correo terminado en @gmail.com o @hotmail.com.");
+            return;
+        }
         const userData = {
             name,
             birthdate,
@@ -2796,7 +2802,7 @@ function setupEventListeners() {
             await db.ref(`pending_auth_profiles/${credential.user.uid}`).set(userData);
             await credential.user.sendEmailVerification();
             await auth.signOut();
-            alert("Cuenta creada. Verifica tu correo antes de iniciar sesión.");
+            alert("Cuenta creada. Te enviamos un correo para verificarla. Revisa Recibidos y también Spam o Correo no deseado. Después de verificarla, inicia sesión.");
             document.getElementById('tabLogin').click();
         } catch (error) {
             console.error("No se pudo crear la cuenta", error);

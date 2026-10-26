@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: losbasados-media-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run media-api
+    healthCheckPath: /health
+    envVars:
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_OWNER
+        value: zeva130206-sys
+      - key: GITHUB_REPO
+        value: losbasados
+      - key: GITHUB_BRANCH
+        value: main
+      - key: PUBLIC_SITE_URL
+        value: https://zeva130206-sys.github.io/losbasados
+      - key: MODERATOR_EMAILS
+        value: esva@losbasados.com,jesuslazarinos0@gmail.com,cargoso@gmail.com,zeva130206@gmail.com
+      - key: ALLOWED_ORIGINS
+        value: https://zeva130206-sys.github.io
