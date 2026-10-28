@@ -647,6 +647,39 @@ function compressImageToWebp(file) {
     });
 }
 
+function validateImageAspectRatio(source, expectedRatio, label) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        const isFile = source instanceof Blob;
+        const objectUrl = isFile ? URL.createObjectURL(source) : '';
+        let timeout = 0;
+        const finish = (error) => {
+            window.clearTimeout(timeout);
+            image.onload = null;
+            image.onerror = null;
+            image.src = '';
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            if (error) reject(error);
+            else resolve();
+        };
+        image.onload = () => {
+            const actualRatio = image.naturalWidth / image.naturalHeight;
+            if (Math.abs(actualRatio / expectedRatio - 1) > 0.02) {
+                finish(new Error(`${label} debe tener una proporción ${expectedRatio === 1.6 ? '16:10' : '16:9'}.`));
+                return;
+            }
+            finish();
+        };
+        image.onerror = () => finish(new Error(`No se pudo comprobar la proporción de ${label.toLowerCase()}.`));
+        timeout = window.setTimeout(() => finish(new Error(`Se agotó el tiempo al comprobar ${label.toLowerCase()}.`)), 10000);
+        image.src = objectUrl || source;
+    });
+}
+
+function isWidescreen16By9(width, height) {
+    return Math.abs((width / height) / (16 / 9) - 1) <= 0.02;
+}
+
 function validateVideoDuration(file) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
@@ -664,6 +697,10 @@ function validateVideoDuration(file) {
         };
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
+            if (!isWidescreen16By9(video.videoWidth, video.videoHeight)) {
+                finish(new Error("El video del carrusel debe tener una proporción 16:9."));
+                return;
+            }
             if (!Number.isFinite(video.duration) || video.duration > 30) {
                 finish(new Error("El video debe durar 30 segundos o menos."));
                 return;
@@ -691,6 +728,10 @@ function validateVideoUrlDuration(url) {
         };
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
+            if (!isWidescreen16By9(video.videoWidth, video.videoHeight)) {
+                finish(new Error("El video del carrusel debe tener una proporción 16:9."));
+                return;
+            }
             if (!Number.isFinite(video.duration) || video.duration > 30) {
                 finish(new Error("El video debe durar 30 segundos o menos."));
                 return;
@@ -1579,7 +1620,7 @@ function renderHeroCarousel(games) {
     }
 
     container.innerHTML = featuredGames.map((game, i) => `
-        <div class="carousel-slide ${i === 0 ? 'active' : ''}" role="group" aria-roledescription="diapositiva" aria-label="Destacado ${i + 1} de ${featuredGames.length}: ${game.title}" aria-hidden="${i === 0 ? 'false' : 'true'}" style="background-image: url('${game.image}');">
+        <div class="carousel-slide ${i === 0 ? 'active' : ''}" role="group" aria-roledescription="diapositiva" aria-label="Destacado ${i + 1} de ${featuredGames.length}: ${game.title}" aria-hidden="${i === 0 ? 'false' : 'true'}" style="background-image: url('${game.heroMediaType === 'image' && game.heroMediaUrl ? game.heroMediaUrl : (game.heroPoster || game.catalogImage || game.image)}');">
             <div class="hero-content">
                 <span class="badge">DESTACADO DE LA SEMANA</span>
                 <h2>${game.title.toUpperCase()} ${game.ageRestricted ? '<span class="badge-18-tag">+18</span>' : ''}</h2>
@@ -1807,7 +1848,7 @@ function renderGames(data) {
 
         card.innerHTML = `
             <div class="card-img-wrap">
-                <img src="${game.image}" alt="${game.title}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMAGE}';">
+                <img src="${game.catalogImage || game.image}" alt="${game.title}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMAGE}';">
                 
                 <div class="card-badges-row">
                     ${game.onlineStatus === 'online' ? '<span class="status-pill online"><i class="fas fa-wifi"></i> Online</span>' : ''}
@@ -2403,6 +2444,7 @@ function openAdminEditModal(e, id) {
     document.getElementById('adminTitle').value = game.title;
     document.getElementById('adminSize').value = game.size;
     document.getElementById('adminServer').value = game.server || 'MediaFire';
+    document.getElementById('adminCatalogImage').value = game.catalogImage || game.image;
     document.getElementById('adminImage').value = game.image;
     document.getElementById('adminHeroMediaUrl').value = game.heroMediaUrl || '';
     document.getElementById('adminHeroMediaType').value = game.heroMediaType || 'image';
@@ -2446,6 +2488,8 @@ function openAdminEditModal(e, id) {
 function resetAdminForm() {
     document.getElementById('formAdminGame').reset();
     document.getElementById('adminGameId').value = '';
+    document.getElementById('adminCatalogImageFileInput').value = '';
+    document.getElementById('adminCatalogImage').value = '';
     document.getElementById('adminImageFileInput').value = '';
     document.getElementById('adminHeroMediaFileInput').value = '';
     document.getElementById('adminHeroMediaUrl').value = '';
@@ -2458,6 +2502,21 @@ function resetAdminForm() {
 }
 
 document.getElementById('btnCancelEdit').addEventListener('click', resetAdminForm);
+
+document.getElementById('adminCatalogImageFileInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+        await validateImageAspectRatio(file, 1.6, "La imagen del catálogo");
+        const { url } = await uploadImageFile(file);
+        document.getElementById('adminCatalogImage').value = url;
+    } catch (error) {
+        console.error("No se pudo cargar la imagen del catálogo", error);
+        alert(`No se pudo cargar la imagen del catálogo: ${error.message}`);
+    } finally {
+        e.target.value = '';
+    }
+});
 
 document.getElementById('adminImageFileInput').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -2477,6 +2536,9 @@ document.getElementById('adminHeroMediaFileInput').addEventListener('change', as
     const file = e.target.files[0];
     if (!file) return;
     try {
+        if (file.type.startsWith('image/')) {
+            await validateImageAspectRatio(file, 16 / 9, "La imagen del carrusel");
+        }
         const { url, type } = file.type.startsWith('video/')
             ? await uploadVideoFile(file, 'hero')
             : await uploadImageFile(file);
@@ -2502,6 +2564,7 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
     const title = document.getElementById('adminTitle').value.trim();
     const size = document.getElementById('adminSize').value.trim();
     const server = document.getElementById('adminServer').value.trim();
+    const catalogImage = document.getElementById('adminCatalogImage').value.trim();
     const image = document.getElementById('adminImage').value.trim();
     const heroMediaUrl = document.getElementById('adminHeroMediaUrl').value.trim();
     const heroMediaType = heroMediaUrl ? document.getElementById('adminHeroMediaType').value : '';
@@ -2519,6 +2582,7 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
 
     const existingGame = loadedGames.find(g => g.id === id);
     const downloadsCount = existingGame ? (existingGame.downloadsCount || 0) : 0;
+    const usesLegacyCatalogImage = existingGame && !existingGame.catalogImage && catalogImage === existingGame.image;
 
     const gameData = {
         id,
@@ -2526,10 +2590,11 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
         category: selectedCategories.length > 0 ? selectedCategories : ["General"],
         size,
         server,
+        catalogImage,
         image,
         heroMediaUrl,
         heroMediaType,
-        heroPoster: image,
+        heroPoster: catalogImage,
         heroButtonLabel: document.getElementById('adminHeroButtonLabel').value.trim(),
         desc,
         ageRestricted,
@@ -2551,13 +2616,18 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
         installGuide: document.getElementById('adminGuide').value.trim()
     };
 
-    if (heroMediaType === 'video') {
-        try {
-            await validateVideoUrlDuration(heroMediaUrl);
-        } catch (error) {
-            alert(`No se pudo guardar el video destacado: ${error.message}`);
-            return;
+    try {
+        if (!usesLegacyCatalogImage) {
+            await validateImageAspectRatio(catalogImage, 1.6, "La imagen del catálogo");
         }
+        if (heroMediaType === 'image') {
+            await validateImageAspectRatio(heroMediaUrl, 16 / 9, "La imagen del carrusel");
+        } else if (heroMediaType === 'video') {
+            await validateVideoUrlDuration(heroMediaUrl);
+        }
+    } catch (error) {
+        alert(`No se pudo guardar el juego: ${error.message}`);
+        return;
     }
 
     gamesRef.child(id).set(gameData, (err) => {

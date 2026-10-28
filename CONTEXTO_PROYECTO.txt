@@ -1,5 +1,5 @@
 LOS BASADOS — CONTEXTO Y RELEVO
-Actualizado: 26 de octubre de 2026
+Actualizado: 28 de octubre de 2026
 
 CONTEXTO DE LA APLICACIÓN
 - Sitio de catálogo y comunidad hecho con React, TypeScript y Vite.
@@ -27,6 +27,11 @@ CONTEXTO DE LA APLICACIÓN
   para las operaciones y permisos existentes.
 - Próximo punto de relevo: revisión visual adicional del panel con cuenta real
   de moderador y contenido real, y seguir refinando las demás vistas.
+- El panel separa las imágenes por uso: tarjeta de catálogo 16:10, portada
+  vertical del detalle (recomendado 3:4) y visual de carrusel obligatorio 16:9
+  (imagen o video). Las proporciones del catálogo y carrusel se validan antes
+  de guardar; los registros antiguos conservan su imagen de catálogo actual
+  hasta que se reemplace.
 - Validación de esta iteración: npm run build, npx tsc --noEmit y node --check
   public/assets/js/main.js finalizaron bien. Navegador verificado a 360, 390,
   768 y 1440 px; ficha y edición moderador probadas, solicitudes y panel de
@@ -113,6 +118,8 @@ RESOLUCIONES RECOMENDADAS PARA IMÁGENES
 - Ficha de juego: 1200 x 1600 px, vertical 3:4; WebP o JPEG. Mantener personaje,
   título y elementos importantes centrados para que el arte pueda adaptarse sin
   recortes destructivos ni deformación.
+- Tarjeta del catálogo: 1600 x 1000 px, horizontal 16:10; WebP o JPEG. Mantener
+  el sujeto principal centrado porque la tarjeta recorta el contenido en hover.
 - Carrusel/hero de inicio: 1920 x 1080 px, horizontal 16:9; WebP o JPEG. Dejar
   márgenes de seguridad alrededor del sujeto y comprobar el encuadre en móvil.
 - Revisar especialmente el arte de Rayman Legends en el hero; ajustar posición

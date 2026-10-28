@@ -37,6 +37,7 @@ type Game = {
   id: string;
   title: string;
   image: string;
+  catalogImage?: string;
   heroMediaUrl?: string;
   heroMediaType?: "image" | "video";
   heroPoster?: string;
@@ -225,7 +226,7 @@ function HeroShowcase(props: {
   const heroVideoRef = useRef<HTMLVideoElement>(null);
   const heroMediaUrl = game.heroMediaUrl || "";
   const heroMediaType = game.heroMediaType || (/\.mp4(?:$|\?)|\.webm(?:$|\?)/i.test(heroMediaUrl) ? "video" : "image");
-  const heroPoster = asset(game.heroPoster || game.image);
+  const heroPoster = asset(game.heroPoster || game.catalogImage || game.image);
 
   useEffect(() => {
     setHeroVideoActive(false);
@@ -339,7 +340,7 @@ function HeroShowcase(props: {
           ) : (
             <motion.img
               key={`art-${game.id}`}
-              src={asset(heroMediaUrl || game.image)}
+              src={asset(heroMediaUrl || game.catalogImage || game.image)}
               alt={`Arte de ${game.title}`}
               loading="eager"
               decoding="async"
@@ -389,7 +390,7 @@ function GameCard(props: { game: Game; user: User | null; favorite: boolean; onO
       style={{ transformStyle: "preserve-3d" }}
     >
       <div className="lb-card-image">
-        <img src={asset(game.image)} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = asset(fallbackGame.image); }} />
+        <img src={asset(game.catalogImage || game.image)} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = asset(fallbackGame.catalogImage || fallbackGame.image); }} />
         <div className="lb-card-shade" />
         <div className="lb-card-topline">
           <span className="lb-card-type">{cats.slice(0, 2).join(" · ") || "JUEGO"}</span>

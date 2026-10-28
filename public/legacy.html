@@ -345,19 +345,24 @@
                         </div>
                     </div>
 
-                    <!-- SUBIR FOTO DE JUEGO CON COMPRESIÓN MÁX 1MB -->
                     <div class="form-group" style="background:#09090e; padding:10px; border-radius:8px; border:1px solid #222234;">
-                        <label><i class="fas fa-image" style="color:var(--neon-red);"></i> Imagen de Portada (Subir o URL)</label>
-                        <input type="file" id="adminImageFileInput" accept="image/png, image/jpeg, image/webp" style="margin-bottom:6px; font-size:0.8rem; color:#aaa;">
-                        <small style="color:#888; display:block; margin-bottom:6px;">Subir desde PC/Móvil (Auto-compresión a &lt; 1MB)</small>
-                        <input type="text" id="adminImage" placeholder="assets/img/juego.png o URL externa" required>
+                        <label><i class="fas fa-image" style="color:var(--neon-red);"></i> Imagen del catálogo (16:10)</label>
+                        <input type="file" id="adminCatalogImageFileInput" accept="image/png, image/jpeg, image/webp" style="margin-bottom:6px; font-size:0.8rem; color:#aaa;">
+                        <small style="color:#888; display:block; margin-bottom:6px;">Imagen horizontal para las tarjetas del catálogo; proporción requerida 16:10.</small>
+                        <input type="text" id="adminCatalogImage" placeholder="assets/img/juego-catalogo.png o URL externa" required>
                     </div>
                     <div class="form-group" style="background:#09090e; padding:10px; border-radius:8px; border:1px solid #222234;">
-                        <label><i class="fas fa-photo-film" style="color:var(--neon-red);"></i> Visual del carrusel (imagen o video opcional)</label>
+                        <label><i class="fas fa-image" style="color:var(--neon-red);"></i> Imagen de Portada vertical (detalle del juego)</label>
+                        <input type="file" id="adminImageFileInput" accept="image/png, image/jpeg, image/webp" style="margin-bottom:6px; font-size:0.8rem; color:#aaa;">
+                        <small style="color:#888; display:block; margin-bottom:6px;">Se muestra al abrir la ficha del juego. Recomendado: imagen vertical 3:4; subida optimizada a &lt; 1 MB.</small>
+                        <input type="text" id="adminImage" placeholder="assets/img/juego-portada.png o URL externa" required>
+                    </div>
+                    <div class="form-group" style="background:#09090e; padding:10px; border-radius:8px; border:1px solid #222234;">
+                        <label><i class="fas fa-photo-film" style="color:var(--neon-red);"></i> Visual del carrusel (16:9, obligatorio)</label>
                         <input type="file" id="adminHeroMediaFileInput" accept="image/*,video/mp4,video/webm" style="margin-bottom:6px; font-size:0.8rem; color:#aaa;">
-                        <input type="url" id="adminHeroMediaUrl" placeholder="https://... (imagen o video)">
+                        <input type="url" id="adminHeroMediaUrl" placeholder="https://... (imagen o video 16:9)" required>
                         <input type="hidden" id="adminHeroMediaType" value="image">
-                        <small style="color:#888; display:block;">JPG/PNG se optimizan a WebP. Videos MP4/WebM: máximo 8 MB y 30 segundos; se reproducen en bucle al pasar el cursor.</small>
+                        <small style="color:#888; display:block;">Sube una imagen o video horizontal 16:9. Imágenes: máximo 1 MB; videos MP4/WebM: máximo 8 MB y 30 segundos, en bucle al pasar el cursor.</small>
                         <label for="adminHeroButtonLabel" style="margin-top:8px;">Texto del botón principal</label>
                         <input type="text" id="adminHeroButtonLabel" maxlength="48" placeholder="VER VERSIONES Y DESCARGAR">
                     </div>

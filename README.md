@@ -30,6 +30,8 @@ Las imágenes se guardan comprimidas (máximo 1 MB) en Firebase Realtime Databas
 4. En GitHub, abre **Settings → Secrets and variables → Actions → New repository secret**. Crea `VITE_MEDIA_API_URL` con la URL de Render, sin `/` al final.
 5. En GitHub, abre **Actions → Deploy to GitHub Pages → Run workflow** para reconstruir la web con esa URL.
 
+En el formulario de juegos, la imagen de catálogo usa proporción 16:10; la portada del detalle es vertical (recomendado 3:4); y el visual del carrusel es obligatorio y debe ser 16:9, ya sea imagen o video. El panel valida las proporciones del catálogo y del carrusel antes de guardar.
+
 El Blueprint ya define el repositorio, la rama, el origen de GitHub Pages y los correos moderadores actuales. Render Free puede tardar en despertar tras un periodo sin uso. La API de Render recibe solo videos y requiere una sesión con correo verificado; los archivos publicados son accesibles públicamente.
 
 ## Componentes shadcn/ui
