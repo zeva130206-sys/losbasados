@@ -18,6 +18,7 @@ import {
   Download,
   Filter,
   Flame,
+  Gauge,
   Gamepad2,
   Heart,
   Menu,
@@ -25,13 +26,18 @@ import {
   Moon,
   Music2,
   Pencil,
+  Pause,
+  Play,
   Search,
   Shield,
   Sparkles,
   Sun,
   Users,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
+import CommunityMissions from "./CommunityMissions";
 
 type Game = {
   id: string;
@@ -74,6 +80,8 @@ declare global {
     openPrivateChatWith?: (name: string) => void;
     openAdminEditModal?: (event: Event, id: string) => void;
     editNews?: (id: string) => void;
+    __LOS_BASADOS_MEDIA_API__?: string;
+    getLosBasadosAuthToken?: () => Promise<string | null>;
     __LOS_BASADOS__?: Record<string, unknown>;
   }
 }
@@ -141,6 +149,8 @@ function Header(props: {
   onSearch: (value: string) => void;
   theme: "dark" | "light";
   onTheme: () => void;
+  performanceMode: boolean;
+  onTogglePerformance: () => void;
   user: User | null;
   online: number;
   onCommunity: () => void;
@@ -150,7 +160,7 @@ function Header(props: {
   onMobileMenu: () => void;
 }) {
   const {
-    view, onNavigate, search, onSearch, theme, onTheme, user, online, onCommunity, onWishlist, favoritesCount,
+    view, onNavigate, search, onSearch, theme, onTheme, performanceMode, onTogglePerformance, user, online, onCommunity, onWishlist, favoritesCount,
     mobileMenu, onMobileMenu,
   } = props;
 
@@ -188,6 +198,9 @@ function Header(props: {
         <button className="lb-icon-button" type="button" onClick={onTheme} aria-label={`Cambiar a tema ${theme === "dark" ? "claro" : "oscuro"}`} title={`Tema ${theme === "dark" ? "claro" : "oscuro"}`}>
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>
+        <button className={`lb-icon-button lb-performance-button${performanceMode ? " is-active" : ""}`} type="button" onClick={onTogglePerformance} aria-pressed={performanceMode} aria-label={performanceMode ? "Desactivar modo rendimiento" : "Activar modo rendimiento"} title="Modo rendimiento">
+          <Gauge size={17} />
+        </button>
         <button className="lb-icon-button lb-audio-button" type="button" onClick={() => invokeLegacy("btnToggleAudio")} aria-label="Activar o desactivar música" title="Música">
           <Music2 size={17} />
         </button>
@@ -213,8 +226,9 @@ function HeroShowcase(props: {
   onHoverChange: (hovered: boolean) => void;
   onOpenGame: (game: Game, origin?: HTMLElement) => void;
   onCatalog: () => void;
+  performanceMode: boolean;
 }) {
-  const { game, featured, index, setIndex, onHoverChange, onOpenGame, onCatalog } = props;
+  const { game, featured, index, setIndex, onHoverChange, onOpenGame, onCatalog, performanceMode } = props;
   const pointerX = useMotionValue(0);
   const pointerY = useMotionValue(0);
   const rotateY = useSpring(useTransform(pointerX, [-0.5, 0.5], [-5, 5]), { stiffness: 90, damping: 22 });
@@ -224,6 +238,7 @@ function HeroShowcase(props: {
   const [heroVideoReady, setHeroVideoReady] = useState(false);
   const [loadedHeroVideoUrl, setLoadedHeroVideoUrl] = useState("");
   const heroVideoRef = useRef<HTMLVideoElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const heroMediaUrl = game.heroMediaUrl || "";
   const heroMediaType = game.heroMediaType || (/\.mp4(?:$|\?)|\.webm(?:$|\?)/i.test(heroMediaUrl) ? "video" : "image");
   const heroPoster = asset(game.heroPoster || game.catalogImage || game.image);
@@ -271,15 +286,28 @@ function HeroShowcase(props: {
   }, [heroVideoActive, heroMediaUrl, loadedHeroVideoUrl]);
 
   const movePointer = (event: React.PointerEvent<HTMLElement>) => {
-    if (reducedMotion || event.pointerType !== "mouse") return;
+    if (reducedMotion || performanceMode || event.pointerType !== "mouse") return;
     const rect = event.currentTarget.getBoundingClientRect();
     pointerX.set((event.clientX - rect.left) / rect.width - 0.5);
     pointerY.set((event.clientY - rect.top) / rect.height - 0.5);
   };
   const resetPointer = () => { pointerX.set(0); pointerY.set(0); };
+  const finishSwipe = (event: React.PointerEvent<HTMLElement>) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || event.pointerType !== "touch") return;
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) < 52 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2 || featured.length < 2) return;
+    stopHeroVideo();
+    setIndex((index + (deltaX < 0 ? 1 : -1) + featured.length) % featured.length);
+  };
+  useEffect(() => {
+    if (performanceMode) stopHeroVideo();
+  }, [performanceMode]);
 
   return (
-    <section className="lb-hero" onPointerMove={movePointer} onPointerLeave={(event) => { resetPointer(); if (event.pointerType === "mouse") { stopHeroVideo(); onHoverChange(false); } }} onPointerEnter={(event) => { if (event.pointerType === "mouse") { onHoverChange(true); startHeroVideo(); } }} aria-label="Juego destacado">
+    <section className="lb-hero" onPointerDown={(event) => { if (event.pointerType === "touch") touchStart.current = { x: event.clientX, y: event.clientY }; }} onPointerUp={finishSwipe} onPointerCancel={() => { touchStart.current = null; }} onPointerMove={movePointer} onPointerLeave={(event) => { resetPointer(); if (event.pointerType === "mouse") { stopHeroVideo(); onHoverChange(false); } }} onPointerEnter={(event) => { if (event.pointerType === "mouse") { onHoverChange(true); if (!performanceMode) startHeroVideo(); } }} aria-label="Juego destacado">
       <AnimatePresence mode="wait">
         <motion.div
           className="lb-hero-backdrop"
@@ -421,10 +449,11 @@ function GameCard(props: { game: Game; user: User | null; favorite: boolean; onO
 function HomePage(props: {
   games: Game[]; featured: Game[]; heroIndex: number; setHeroIndex: (index: number) => void; setHeroHovered: (hovered: boolean) => void; footer: FooterContent;
   user: User | null; favorites: string[]; news: News[]; socials: Social; online: number;
+  performanceMode: boolean;
   onOpenGame: (game: Game, origin?: HTMLElement) => void; onFavorite: (game: Game) => void; onCatalog: () => void;
   onCommunity: () => void;
 }) {
-  const { games, featured, heroIndex, setHeroIndex, setHeroHovered, footer, user, favorites, news, socials, online, onOpenGame, onFavorite, onCatalog, onCommunity } = props;
+  const { games, featured, heroIndex, setHeroIndex, setHeroHovered, footer, user, favorites, news, socials, online, performanceMode, onOpenGame, onFavorite, onCatalog, onCommunity } = props;
   const heroGame = featured[heroIndex] || featured[0] || fallbackGame;
   const trending = [...games].sort((a, b) => Number(b.downloadsCount || 0) - Number(a.downloadsCount || 0)).filter((game) => !game.ageRestricted).slice(0, 4);
   const collection = [
@@ -435,7 +464,7 @@ function HomePage(props: {
 
   return (
     <motion.main key="home" className="lb-page lb-home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.32 }}>
-      <HeroShowcase game={heroGame} featured={featured} index={heroIndex} setIndex={setHeroIndex} onHoverChange={setHeroHovered} onOpenGame={onOpenGame} onCatalog={onCatalog} />
+      <HeroShowcase game={heroGame} featured={featured} index={heroIndex} setIndex={setHeroIndex} onHoverChange={setHeroHovered} onOpenGame={onOpenGame} onCatalog={onCatalog} performanceMode={performanceMode} />
 
       <section className="lb-editorial-row lb-container">
         <div className="lb-editorial-heading">
@@ -575,13 +604,13 @@ function WishlistPage(props: { games: Game[]; user: User | null; favorites: stri
   );
 }
 
-function FloatingAdNotice(props: { ad: FloatingAd; onClose: () => void; onOpen: () => void }) {
+function FloatingAdNotice(props: { ad: FloatingAd; onClose: () => void; onOpen: () => void; performanceMode: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { ad, onClose, onOpen } = props;
+  const { ad, onClose, onOpen, performanceMode } = props;
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || performanceMode) return;
     const playWhenVisible = () => {
       if (document.visibilityState === "visible") {
         void video.play().catch((error: DOMException) => {
@@ -599,12 +628,12 @@ function FloatingAdNotice(props: { ad: FloatingAd; onClose: () => void; onOpen: 
       video.removeAttribute("src");
       video.load();
     };
-  }, [ad.id, ad.videoUrl]);
+  }, [ad.id, ad.videoUrl, performanceMode]);
 
   return (
     <aside className={`lb-floating-ad lb-floating-ad--${ad.position}`} aria-label={`Anuncio: ${ad.title}`}>
       <button className="lb-floating-ad__open" type="button" onClick={onOpen} aria-label={`Ver ${ad.title}`}>
-        <video ref={videoRef} src={asset(ad.videoUrl)} muted loop playsInline preload="metadata" />
+        {!performanceMode && <video ref={videoRef} src={asset(ad.videoUrl)} muted loop playsInline preload="metadata" />}
         <span className="lb-floating-ad__title">{ad.title}</span>
       </button>
       <button className="lb-floating-ad__close" type="button" onClick={onClose} aria-label="Cerrar anuncio"><X size={16} /></button>
@@ -613,8 +642,92 @@ function FloatingAdNotice(props: { ad: FloatingAd; onClose: () => void; onOpen: 
   );
 }
 
-function CommunityPage(props: { visible: boolean; online: number; user: User | null; friends: FriendRecord; registeredUsers: Record<string, RegisteredUser>; onlineUsers: OnlineUser[]; chatRef: RefObject<HTMLDivElement>; requestsRef: RefObject<HTMLDivElement>; dmRef: RefObject<HTMLDivElement> }) {
-  const { visible, online, user, friends, registeredUsers, onlineUsers, chatRef, requestsRef, dmRef } = props;
+function LocalRadio() {
+  const [tracks, setTracks] = useState<Array<{ name: string; url: string }>>([]);
+  const [selectedTrack, setSelectedTrack] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [error, setError] = useState("");
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const objectUrls = useRef<string[]>([]);
+  const currentTrack = tracks[selectedTrack];
+
+  useEffect(() => () => objectUrls.current.forEach((url) => URL.revokeObjectURL(url)), []);
+
+  const selectTracks = (files: FileList | null) => {
+    if (!files?.length) return;
+    const audioFiles = Array.from(files).filter((file) => file.type.startsWith("audio/"));
+    if (!audioFiles.length) {
+      setError("Selecciona archivos de audio compatibles.");
+      return;
+    }
+    if (audioFiles.length !== files.length) setError("Se omitieron archivos que no son audio.");
+    else setError("");
+    audioRef.current?.pause();
+    setIsPlaying(false);
+    objectUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    objectUrls.current = audioFiles.map((file) => URL.createObjectURL(file));
+    setTracks(audioFiles.map((file, index) => ({ name: file.name, url: objectUrls.current[index] })));
+    setSelectedTrack(0);
+  };
+
+  const playTrack = (index = selectedTrack) => {
+    const track = tracks[index];
+    const player = audioRef.current;
+    if (!track || !player) {
+      setError("Añade tus pistas de audio propias o con licencia para reproducirlas.");
+      setIsOpen(true);
+      return;
+    }
+    setSelectedTrack(index);
+    if (player.src !== track.url) {
+      player.src = track.url;
+      player.load();
+    }
+    player.muted = muted;
+    setError("");
+    void player.play().then(() => setIsPlaying(true)).catch((playError: DOMException) => {
+      setIsPlaying(false);
+      setError(playError.message || "No se pudo reproducir esta pista.");
+    });
+  };
+
+  const togglePlayback = () => {
+    if (isPlaying) {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+      return;
+    }
+    playTrack();
+  };
+
+  return (
+    <aside className={`lb-local-radio${isOpen ? " is-open" : ""}`} aria-label="Reproductor de audio local">
+      {isOpen && <div className="lb-local-radio-panel">
+        <header><span><Music2 size={15} /> RADIO · TUS PISTAS</span><button type="button" onClick={() => setIsOpen(false)} aria-label="Cerrar radio"><X size={15} /></button></header>
+        <p>Reproduce archivos propios o con licencia, directamente desde tu dispositivo.</p>
+        <label className="lb-radio-file"><input type="file" accept="audio/*" multiple onChange={(event) => { selectTracks(event.currentTarget.files); event.currentTarget.value = ""; }} />Añadir pistas</label>
+        {tracks.length > 0 && <select aria-label="Seleccionar pista" value={selectedTrack} onChange={(event) => { const next = Number(event.target.value); setSelectedTrack(next); if (isPlaying) playTrack(next); }}>
+          {tracks.map((track, index) => <option key={`${track.name}-${index}`} value={index}>{track.name}</option>)}
+        </select>}
+        {error && <span className="lb-radio-error" role="status">{error}</span>}
+        <div className="lb-radio-controls">
+          <button type="button" onClick={togglePlayback} aria-label={isPlaying ? "Pausar reproducción" : "Reproducir"}>{isPlaying ? <Pause size={17} /> : <Play size={17} />}</button>
+          <span>{currentTrack?.name || "Sin pista seleccionada"}</span>
+          <button type="button" onClick={() => { const nextMuted = !muted; setMuted(nextMuted); if (audioRef.current) audioRef.current.muted = nextMuted; }} aria-label={muted ? "Activar sonido" : "Silenciar"}>{muted ? <VolumeX size={17} /> : <Volume2 size={17} />}</button>
+        </div>
+      </div>}
+      <button className="lb-radio-toggle" type="button" onClick={() => setIsOpen((open) => !open)} aria-expanded={isOpen} aria-label={isOpen ? "Cerrar mini radio" : "Abrir mini radio"} title="Mini radio">
+        <Music2 size={17} /><span>Radio</span>
+      </button>
+      <audio ref={audioRef} hidden onEnded={() => { if (tracks.length > 1) playTrack((selectedTrack + 1) % tracks.length); else setIsPlaying(false); }} />
+    </aside>
+  );
+}
+
+function CommunityPage(props: { visible: boolean; online: number; user: User | null; games: Game[]; friends: FriendRecord; registeredUsers: Record<string, RegisteredUser>; onlineUsers: OnlineUser[]; chatRef: RefObject<HTMLDivElement>; requestsRef: RefObject<HTMLDivElement>; dmRef: RefObject<HTMLDivElement> }) {
+  const { visible, online, user, games, friends, registeredUsers, onlineUsers, chatRef, requestsRef, dmRef } = props;
   const friendRecords = user?.name ? Object.entries(friends[user.name] || {}).map(([key, value]) => {
     const detail = typeof value === "object" && value ? value : {};
     const name = (typeof detail === "object" && detail.name) || (typeof value === "string" ? value : key);
@@ -655,6 +768,7 @@ function CommunityPage(props: { visible: boolean; online: number; user: User | n
             <div className="lb-community-dm-host" ref={dmRef} />
           </section>
         </div>
+        <CommunityMissions games={games} user={user} isMod={Boolean(user?.isMod)} />
       </section>
       <footer className="lb-footer lb-container"><span>LOS BASADOS · CONECTA. JUEGA. COMPARTE.</span><span>CHAT GENERAL · PEDIR JUEGO</span><span>{online} EN LÍNEA</span></footer>
     </motion.main>
@@ -692,6 +806,9 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try { return localStorage.getItem("losbasados-theme") === "light" ? "light" : "dark"; } catch { return "dark"; }
   });
+  const [performanceMode, setPerformanceMode] = useState(() => {
+    try { return localStorage.getItem("losbasados-performance-mode") === "true"; } catch { return false; }
+  });
   const reducedMotion = useReducedMotion();
   const featured = useMemo(() => {
     const eligible = games.filter((game) => !game.ageRestricted || user?.isAdult);
@@ -724,6 +841,10 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
     document.documentElement.dataset.theme = theme;
     return () => { cleanups.forEach((cleanup) => cleanup()); window.removeEventListener("hashchange", syncHash); };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.performance = performanceMode ? "low" : "full";
+  }, [performanceMode]);
 
   useEffect(() => {
     const activeAds = ads.filter((ad) => ad.active && ad.videoUrl && ad.targetGameId);
@@ -778,10 +899,10 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
   }, [wishlistNotice]);
 
   useEffect(() => {
-    if (reducedMotion || featured.length < 2 || view !== "home" || heroHovered) return;
+    if (reducedMotion || performanceMode || featured.length < 2 || view !== "home" || heroHovered) return;
     const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % featured.length), 8200);
     return () => window.clearInterval(timer);
-  }, [featured.length, heroHovered, reducedMotion, view]);
+  }, [featured.length, heroHovered, performanceMode, reducedMotion, view]);
 
   const navigate = (next: View) => {
     setView(next);
@@ -808,16 +929,22 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
     setSearch(value);
     if (value && view !== "catalog") navigate("catalog");
   };
+  const togglePerformanceMode = () => setPerformanceMode((enabled) => {
+    const next = !enabled;
+    try { localStorage.setItem("losbasados-performance-mode", String(next)); } catch { /* The preference still applies until the page closes. */ }
+    return next;
+  });
 
   return (
     <div className={`lb-app theme-${theme}`}>
-      <Header view={view} onNavigate={navigate} onCommunity={() => navigate("community")} onWishlist={() => navigate("wishlist")} favoritesCount={favorites.length} search={search} onSearch={changeSearch} theme={theme} onTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} user={user} online={online} mobileMenu={mobileMenu} onMobileMenu={() => setMobileMenu((current) => !current)} />
+      <Header view={view} onNavigate={navigate} onCommunity={() => navigate("community")} onWishlist={() => navigate("wishlist")} favoritesCount={favorites.length} search={search} onSearch={changeSearch} theme={theme} onTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} performanceMode={performanceMode} onTogglePerformance={togglePerformanceMode} user={user} online={online} mobileMenu={mobileMenu} onMobileMenu={() => setMobileMenu((current) => !current)} />
       <AnimatePresence>{wishlistNotice && <motion.div className="lb-wishlist-toast" role="status" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><Bell size={16} /><span>{wishlistNotice}</span><button type="button" onClick={() => setWishlistNotice(null)} aria-label="Cerrar aviso"><X size={15} /></button></motion.div>}</AnimatePresence>
       <AnimatePresence mode="wait" initial={false}>
-        {view === "home" ? <HomePage key="home-page" games={games} featured={featured} heroIndex={heroIndex} setHeroIndex={setHeroIndex} setHeroHovered={setHeroHovered} footer={footer} user={user} favorites={favorites} news={news} socials={socials} online={online} onOpenGame={openGame} onFavorite={toggleFavorite} onCatalog={() => navigate("catalog")} onCommunity={() => navigate("community")} /> : view === "catalog" ? <CatalogPage key="catalog-page" games={games.length ? games : [fallbackGame]} genres={genres} user={user} favorites={favorites} search={search} onSearch={setSearch} onOpenGame={openGame} onFavorite={toggleFavorite} /> : view === "wishlist" ? <WishlistPage key="wishlist-page" games={games} user={user} favorites={favorites} alertIds={wishlistAlerts} onOpen={openGame} onFavorite={toggleFavorite} onToggleAlert={toggleWishlistAlert} onCatalog={() => navigate("catalog")} /> : null}
+        {view === "home" ? <HomePage key="home-page" games={games} featured={featured} heroIndex={heroIndex} setHeroIndex={setHeroIndex} setHeroHovered={setHeroHovered} footer={footer} user={user} favorites={favorites} news={news} socials={socials} online={online} performanceMode={performanceMode} onOpenGame={openGame} onFavorite={toggleFavorite} onCatalog={() => navigate("catalog")} onCommunity={() => navigate("community")} /> : view === "catalog" ? <CatalogPage key="catalog-page" games={games.length ? games : [fallbackGame]} genres={genres} user={user} favorites={favorites} search={search} onSearch={setSearch} onOpenGame={openGame} onFavorite={toggleFavorite} /> : view === "wishlist" ? <WishlistPage key="wishlist-page" games={games} user={user} favorites={favorites} alertIds={wishlistAlerts} onOpen={openGame} onFavorite={toggleFavorite} onToggleAlert={toggleWishlistAlert} onCatalog={() => navigate("catalog")} /> : null}
       </AnimatePresence>
-      <CommunityPage visible={view === "community"} online={online} user={user} friends={friends} registeredUsers={registeredUsers} onlineUsers={onlineUsers} chatRef={communityChatHost} requestsRef={communityRequestsHost} dmRef={communityDmHost} />
-      <AnimatePresence>{visibleAd && <motion.div key={visibleAd.id} initial={{ opacity: 0, scale: 0.94, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 12 }}><FloatingAdNotice ad={visibleAd} onClose={() => { adCursor.current += 1; setVisibleAd(null); }} onOpen={() => { const target = games.find((game) => game.id === visibleAd.targetGameId); setVisibleAd(null); if (target) openGame(target); }} /></motion.div>}</AnimatePresence>
+      <CommunityPage visible={view === "community"} online={online} user={user} games={games} friends={friends} registeredUsers={registeredUsers} onlineUsers={onlineUsers} chatRef={communityChatHost} requestsRef={communityRequestsHost} dmRef={communityDmHost} />
+      <AnimatePresence>{visibleAd && <motion.div key={visibleAd.id} initial={{ opacity: 0, scale: 0.94, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 12 }}><FloatingAdNotice ad={visibleAd} onClose={() => { adCursor.current += 1; setVisibleAd(null); }} onOpen={() => { const target = games.find((game) => game.id === visibleAd.targetGameId); setVisibleAd(null); if (target) openGame(target); }} performanceMode={performanceMode} /></motion.div>}</AnimatePresence>
+      <LocalRadio />
     </div>
   );
 }

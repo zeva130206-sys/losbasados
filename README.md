@@ -22,10 +22,10 @@ Si el repositorio no se llama `<usuario>.github.io`, la dirección publicada nor
 
 ## Subida de imágenes y videos
 
-Las imágenes se guardan comprimidas (máximo 1 MB) en Firebase Realtime Database, como las capturas del muro. Solo los videos pasan por la API Node de `server/media-api.js`, porque GitHub Pages no puede ejecutar ese servicio:
+Las imágenes se guardan comprimidas (máximo 1 MB) en Firebase Realtime Database, como las capturas del muro. Solo los videos pasan por la API Node de `server/media-api.js`, porque GitHub Pages no puede ejecutar ese servicio. Los videos MP4/WebM admiten hasta 24 MB y 30 segundos; el cliente comprueba duración antes de subir y la API valida el tamaño.
 
 1. En Render, crea un **Blueprint** desde el repositorio `zeva130206-sys/losbasados` y confirma el despliegue de `render.yaml`.
-2. Cuando Render solicite los valores secretos, introduce `FIREBASE_API_KEY` (la clave web de la app en Firebase Console → Project settings → General) y un `GITHUB_TOKEN`. Crea el token fine-grained con acceso únicamente a este repositorio y permiso **Contents: Read and write**. No pongas el token en archivos del proyecto ni lo compartas por chat.
+2. Cuando Render solicite los valores privados, introduce `FIREBASE_API_KEY` (la clave web de la app en Firebase Console → Project settings → General), `GITHUB_TOKEN` y las credenciales de una cuenta de servicio Firebase (`FIREBASE_SERVICE_ACCOUNT_EMAIL` y `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY`) para las misiones. Crea el token fine-grained con acceso únicamente a este repositorio y permiso **Contents: Read and write**. No pongas tokens ni claves privadas en archivos del proyecto ni los compartas por chat.
 3. Espera a que el servicio `losbasados-media-api` termine el despliegue. Copia su URL pública, por ejemplo `https://losbasados-media-api.onrender.com`.
 4. En GitHub, abre **Settings → Secrets and variables → Actions → New repository secret**. Crea `VITE_MEDIA_API_URL` con la URL de Render, sin `/` al final.
 5. En GitHub, abre **Actions → Deploy to GitHub Pages → Run workflow** para reconstruir la web con esa URL.
@@ -33,6 +33,10 @@ Las imágenes se guardan comprimidas (máximo 1 MB) en Firebase Realtime Databas
 En el formulario de juegos, la imagen de catálogo usa proporción 16:10; la portada del detalle es vertical (recomendado 3:4); y el visual del carrusel es obligatorio y debe ser 16:9, ya sea imagen o video. El panel valida las proporciones del catálogo y del carrusel antes de guardar.
 
 El Blueprint ya define el repositorio, la rama, el origen de GitHub Pages y los correos moderadores actuales. Render Free puede tardar en despertar tras un periodo sin uso. La API de Render recibe solo videos y requiere una sesión con correo verificado; los archivos publicados son accesibles públicamente.
+
+## Misiones de comunidad
+
+La sección de Comunidad permite a moderadores crear misiones con una recompensa y un tipo de evidencia (captura o video), y revisar los envíos de usuarios con correo verificado. Las misiones y la clasificación se guardan en Firebase Realtime Database bajo `community_missions`; la aprobación actualiza estado, EXP e insignia de manera condicional para impedir recompensas duplicadas. Las capturas deben ser JPEG/PNG/WebP de hasta 1 MB; los videos MP4/WebM, de hasta 24 MB y 30 segundos. Configura las credenciales de servicio solo en el entorno privado de Render. La guía de rutas y configuración está en [server/COMMUNITY_MISSIONS.md](./server/COMMUNITY_MISSIONS.md).
 
 ## Componentes shadcn/ui
 

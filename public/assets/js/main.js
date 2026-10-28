@@ -13,6 +13,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const auth = firebase.auth();
+window.getLosBasadosAuthToken = async () => {
+    const user = auth.currentUser;
+    if (!user || !user.emailVerified) return null;
+    return user.getIdToken();
+};
+window.dispatchEvent(new Event('losbasados:request-community-badges'));
 const messagesRef = db.ref('chat_messages');
 const onlineUsersRef = db.ref('online_users');
 const usersRef = db.ref('users');
@@ -20,6 +26,16 @@ const gamesRef = db.ref('games');
 const newsRef = db.ref('news');
 const genresRef = db.ref('genres');
 const commentsRef = db.ref('comments');
+let communityMissionBadges = new Map();
+window.addEventListener('losbasados:community-badges', (event) => {
+    const entries = Array.isArray(event.detail) ? event.detail : [];
+    communityMissionBadges = new Map(entries
+        .filter((entry) => typeof entry?.uid === 'string' && Array.isArray(entry.badges))
+        .map((entry) => [entry.uid, entry.badges]));
+    document.querySelectorAll('.comment-author[data-author-uid]').forEach((author) => {
+        appendCommunityMissionBadge(author, author.dataset.authorUid);
+    });
+});
 const reportsRef = db.ref('reports');
 const requestsRef = db.ref('game_requests');
 const socialRef = db.ref('social_links');
@@ -676,11 +692,11 @@ function validateImageAspectRatio(source, expectedRatio, label) {
     });
 }
 
-function isWidescreen16By9(width, height) {
-    return Math.abs((width / height) / (16 / 9) - 1) <= 0.02;
+function matchesAspectRatio(width, height, expectedRatio) {
+    return Math.abs((width / height) / expectedRatio - 1) <= 0.02;
 }
 
-function validateVideoDuration(file) {
+function validateVideoDuration(file, expectedAspectRatio) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
         const objectUrl = URL.createObjectURL(file);
@@ -697,7 +713,7 @@ function validateVideoDuration(file) {
         };
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
-            if (!isWidescreen16By9(video.videoWidth, video.videoHeight)) {
+            if (expectedAspectRatio && !matchesAspectRatio(video.videoWidth, video.videoHeight, expectedAspectRatio)) {
                 finish(new Error("El video del carrusel debe tener una proporción 16:9."));
                 return;
             }
@@ -713,7 +729,7 @@ function validateVideoDuration(file) {
     });
 }
 
-function validateVideoUrlDuration(url) {
+function validateVideoUrlDuration(url, expectedAspectRatio) {
     return new Promise((resolve, reject) => {
         const video = document.createElement('video');
         let timeout = 0;
@@ -728,7 +744,7 @@ function validateVideoUrlDuration(url) {
         };
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
-            if (!isWidescreen16By9(video.videoWidth, video.videoHeight)) {
+            if (expectedAspectRatio && !matchesAspectRatio(video.videoWidth, video.videoHeight, expectedAspectRatio)) {
                 finish(new Error("El video del carrusel debe tener una proporción 16:9."));
                 return;
             }
@@ -743,6 +759,7 @@ function validateVideoUrlDuration(url) {
         video.src = url;
     });
 }
+window.compressMissionImage = compressImageToWebp;
 
 async function uploadImageFile(file) {
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
@@ -769,10 +786,10 @@ async function uploadVideoFile(file, folder) {
     if (!['video/mp4', 'video/webm'].includes(file.type)) {
         throw new Error("Formato no compatible. Usa MP4 o WebM.");
     }
-    if (file.size > 8 * 1024 * 1024) {
-        throw new Error("El archivo supera el límite de 8 MB. Reduce su tamaño antes de subirlo.");
+    if (file.size > 24 * 1024 * 1024) {
+        throw new Error("El archivo supera el límite de 24 MB. Reduce su tamaño antes de subirlo.");
     }
-    await validateVideoDuration(file);
+    await validateVideoDuration(file, folder === 'hero' ? 16 / 9 : undefined);
     const user = auth.currentUser;
     if (!user || !user.emailVerified) throw new Error("Inicia sesión con un correo verificado para subir videos.");
     const apiUrl = window.__LOS_BASADOS_MEDIA_API__;
@@ -801,7 +818,7 @@ function uploadAndSendMedia(file, targetFirebaseRef, isDM = false, rating = null
         .then(({ url, type }) => {
             const message = isDM
                 ? { sender: currentUser ? currentUser.name : "Invitado", text: '', mediaUrl: url, mediaType: type, timestamp: Date.now() }
-                : { author: currentUser ? currentUser.name : "Invitado Basado", avatar: currentUser ? currentUser.avatar : "https://api.dicebear.com/7.x/bottts/svg?seed=Guest", text: '', mediaUrl: url, mediaType: type, timestamp: Date.now(), ...(rating ? { rating } : {}) };
+                : { author: currentUser ? currentUser.name : "Invitado Basado", ...(scope === 'comments' && auth.currentUser ? { authorUid: auth.currentUser.uid } : {}), avatar: currentUser ? currentUser.avatar : "https://api.dicebear.com/7.x/bottts/svg?seed=Guest", text: '', mediaUrl: url, mediaType: type, timestamp: Date.now(), ...(rating ? { rating } : {}) };
             targetFirebaseRef.push(message, (error) => {
                 if (error) {
                     console.error("No se pudo guardar el mensaje multimedia en Realtime Database", error);
@@ -935,7 +952,7 @@ function initRealtimeFirebase() {
     // 8. Peticiones de Juegos
     requestsRef.on('value', (snapshot) => {
         const data = snapshot.val();
-        loadedRequests = data ? Object.values(data) : [];
+        loadedRequests = data ? Object.entries(data).map(([id, request]) => ({ ...request, id })) : [];
         renderGameRequests();
     });
 
@@ -1510,6 +1527,26 @@ document.getElementById('formGameRequest').addEventListener('submit', (e) => {
     });
 });
 
+const pendingRequestVotes = new Set();
+window.toggleGameRequestVote = (requestId) => {
+    const user = auth.currentUser;
+    if (!user || !user.emailVerified) {
+        alert("Inicia sesión con un correo verificado para votar por una solicitud.");
+        document.getElementById('btnAuth').click();
+        return;
+    }
+    if (!requestId || pendingRequestVotes.has(requestId)) return;
+    pendingRequestVotes.add(requestId);
+    const voteRef = requestsRef.child(requestId).child('votes').child(user.uid);
+    voteRef.once('value')
+        .then((snapshot) => snapshot.exists() ? voteRef.remove() : voteRef.set(true))
+        .catch((error) => {
+            console.error("No se pudo registrar el voto de la solicitud", error);
+            alert(`No se pudo registrar tu voto: ${error.message}`);
+        })
+        .finally(() => pendingRequestVotes.delete(requestId));
+};
+
 function renderGameRequests() {
     const container = document.getElementById('requestsContainer');
     if (!container) return;
@@ -1518,15 +1555,32 @@ function renderGameRequests() {
         return;
     }
 
-    container.innerHTML = loadedRequests.map(r => `
-        <div class="request-card-item">
-            <div>
-                <strong>${r.title}</strong>
-                <small style="color:#00a2ff; display:block;">[${r.platform}] - Pedido por ${r.requestedBy}</small>
+    const requests = [...loadedRequests].sort((a, b) =>
+        Object.keys(b.votes || {}).length - Object.keys(a.votes || {}).length
+        || Number(b.timestamp || 0) - Number(a.timestamp || 0));
+    const voterUid = auth.currentUser?.uid;
+    container.innerHTML = requests.map((request) => {
+        const votes = request.votes && typeof request.votes === 'object' ? request.votes : {};
+        const voteCount = Object.keys(votes).length;
+        const voted = voterUid ? Boolean(votes[voterUid]) : false;
+        return `
+            <div class="request-card-item">
+                <div class="request-card-copy">
+                    <strong>${escapeGameHTML(request.title || 'Solicitud')}</strong>
+                    <small>[${escapeGameHTML(request.platform || 'Plataforma por confirmar')}] - Pedido por ${escapeGameHTML(request.requestedBy || 'Invitado')}</small>
+                </div>
+                <div class="request-card-actions">
+                    <span><i class="fas fa-clock"></i> Pendiente</span>
+                    <button class="request-vote-button${voted ? ' is-voted' : ''}" type="button" data-request-id="${escapeGameHTML(request.id)}" aria-pressed="${voted}" aria-label="${voted ? 'Quitar voto' : 'Votar por'}: ${escapeGameHTML(request.title || 'solicitud')}, ${voteCount} votos">
+                        <span aria-hidden="true">🔥</span> ${voteCount}
+                    </button>
+                </div>
             </div>
-            <span style="font-size:0.75rem; color:#888;"><i class="fas fa-clock"></i> Pendiente</span>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+    container.querySelectorAll('.request-vote-button').forEach((button) => {
+        button.addEventListener('click', () => window.toggleGameRequestVote(button.dataset.requestId));
+    });
 }
 
 // ORDENAR JUEGOS
@@ -2062,6 +2116,7 @@ function openGameModal(id, origin) {
 
             commentsRef.child(id).push({
                 author: currentUser.name,
+                ...(auth.currentUser ? { authorUid: auth.currentUser.uid } : {}),
                 avatar: currentUser.avatar,
                 rating: selectedRating,
                 text: text,
@@ -2107,6 +2162,7 @@ function setupCommentInteractiveControls(gameId) {
             fetchGiphyGifs(gifQuery, 'commentsContainer', (gifUrl) => {
                 commentsRef.child(gameId).push({
                     author: currentUser.name,
+                    ...(auth.currentUser ? { authorUid: auth.currentUser.uid } : {}),
                     avatar: currentUser.avatar,
                     rating: selectedRating,
                     text: gifUrl,
@@ -2175,6 +2231,16 @@ function setupStarSelector() {
     });
 }
 
+function appendCommunityMissionBadge(author, uid) {
+    if (!author || !uid || !communityMissionBadges.get(uid)?.includes('mission-complete') ||
+        author.parentElement?.querySelector('.comment-mission-badge')) return;
+    const badge = document.createElement('span');
+    badge.className = 'comment-mission-badge';
+    badge.textContent = '🏅 Misión completada';
+    badge.title = 'Insignia por completar una misión de la comunidad';
+    author.insertAdjacentElement('afterend', badge);
+}
+
 function initGameComments(gameId) {
     if (currentActiveGameCommentsRef) currentActiveGameCommentsRef.off();
     currentActiveGameCommentsRef = commentsRef.child(gameId);
@@ -2217,17 +2283,19 @@ function initGameComments(gameId) {
 
             const item = document.createElement('div');
             item.className = 'comment-item';
+            const authorUid = typeof c.authorUid === 'string' && c.authorUid.length <= 128 ? c.authorUid : '';
             item.innerHTML = `
                 <img src="${c.avatar}" alt="${c.author}" loading="lazy" decoding="async" onclick="openPublicProfile('${c.author}', '${c.avatar}')" onerror="this.onerror=null;this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Guest';">
                 <div class="comment-main">
                     <div class="comment-header">
-                        <span class="comment-author" onclick="openPublicProfile('${c.author}', '${c.avatar}')">${c.author}</span>
+                        <span class="comment-author" data-author-uid="${escapeGameHTML(authorUid)}" onclick="openPublicProfile('${c.author}', '${c.avatar}')">${c.author}</span>
                         <span class="comment-date">${dateStr}</span>
                     </div>
                     <div class="comment-stars">${starsHTML}</div>
                     <p class="comment-text">${formattedText}</p>
                 </div>
             `;
+            appendCommunityMissionBadge(item.querySelector('.comment-author'), authorUid);
             container.appendChild(item);
         });
 
@@ -2623,7 +2691,7 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
         if (heroMediaType === 'image') {
             await validateImageAspectRatio(heroMediaUrl, 16 / 9, "La imagen del carrusel");
         } else if (heroMediaType === 'video') {
-            await validateVideoUrlDuration(heroMediaUrl);
+            await validateVideoUrlDuration(heroMediaUrl, 16 / 9);
         }
     } catch (error) {
         alert(`No se pudo guardar el juego: ${error.message}`);

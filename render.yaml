@@ -9,6 +9,10 @@ services:
     envVars:
       - key: FIREBASE_API_KEY
         sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_EMAIL
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY
+        sync: false
       - key: GITHUB_TOKEN
         sync: false
       - key: GITHUB_OWNER

@@ -32,6 +32,10 @@ CONTEXTO DE LA APLICACIÓN
   (imagen o video). Las proporciones del catálogo y carrusel se validan antes
   de guardar; los registros antiguos conservan su imagen de catálogo actual
   hasta que se reemplace.
+- El arte del hero usa `object-fit: cover` y mantiene el marco 16:9 en escritorio
+  y móvil para evitar franjas laterales. El tamaño máximo para videos MP4/WebM
+  se amplió de 8 a 24 MB; se mantiene duración máxima de 30 segundos, con
+  validación 16:9 solo para el medio del hero, no para chat ni anuncios.
 - Validación de esta iteración: npm run build, npx tsc --noEmit y node --check
   public/assets/js/main.js finalizaron bien. Navegador verificado a 360, 390,
   768 y 1440 px; ficha y edición moderador probadas, solicitudes y panel de
@@ -74,7 +78,7 @@ MIGRACIÓN DE MULTIMEDIA, AUTENTICACIÓN Y ADS (26 OCT 2026)
 - Los videos guardados en GitHub Pages son públicos, incluidos los enviados a
   chats privados: el scope `private` solo organiza los archivos y no ofrece
   control de acceso ni cifrado. No subir información sensible por este sistema.
-- Las cargas están limitadas a 8 MB y videos MP4/WebM de hasta 30 segundos
+- Las imágenes están limitadas a 1 MB; videos MP4/WebM a 24 MB y hasta 30 segundos
   (duración comprobada en el cliente); no se transcodifican videos ni se
   convierten a WebP, ya que WebP es un formato de imagen. JPEG/PNG se optimizan
   en el navegador a WebP cuando el resultado ahorra espacio; GIF/WebP se
@@ -127,3 +131,21 @@ RESOLUCIONES RECOMENDADAS PARA IMÁGENES
 
 Al terminar cambios importantes, actualizar este archivo con el estado nuevo,
 el punto donde quedó el trabajo y cualquier recomendación vigente de imágenes.
+
+INTEGRACION DE MISIONES DE COMUNIDAD
+- `src/CommunityMissions.tsx` está integrado debajo del chat y las solicitudes
+  en la vista Comunidad. Los moderadores crean misiones ligadas al catálogo,
+  configuran captura o video como evidencia requerida y revisan los envíos.
+- Misiones, envíos, EXP e insignias usan Firebase Realtime Database en
+  `community_missions`; la API emplea ETags para impedir recompensas duplicadas
+  por revisiones concurrentes. Moderación se valida en el servidor con
+  `MODERATOR_EMAILS`; el nombre/UID de quien envía se obtiene del token Firebase.
+- Las capturas grandes se comprimen a WebP antes de subir (máximo 1 MB). Video
+  MP4/WebM: 24 MB y 30 segundos, con duración comprobada en el cliente y tamaño
+  y firma comprobados por la API.
+- Las insignias aprobadas aparecen en la clasificación y en las reseñas nuevas
+  asociadas a un UID Firebase; las reseñas antiguas no contienen UID y no se
+  pueden asociar de forma fiable.
+- Render necesita `FIREBASE_SERVICE_ACCOUNT_EMAIL` y
+  `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY` como variables privadas. No configurar
+  Firestore ni publicar esas claves en el frontend. Ver `server/COMMUNITY_MISSIONS.md`.
