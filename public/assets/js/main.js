@@ -2920,6 +2920,13 @@ function setupEventListeners() {
                 avatar: profile.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(profile.name)}`,
                 isMod: MODERATOR_EMAILS.includes((credential.user.email || '').toLowerCase())
             };
+            if (credential.user.displayName !== currentUser.name) {
+                try {
+                    await credential.user.updateProfile({ displayName: currentUser.name });
+                } catch (profileError) {
+                    console.warn("No se pudo sincronizar el nombre público con Firebase Authentication", profileError);
+                }
+            }
             localStorage.setItem('basados_user', JSON.stringify(currentUser));
             updateUserUI();
             updateFirebasePresence();
@@ -2985,6 +2992,10 @@ function setupEventListeners() {
         const processSave = (finalAvatar) => {
             if (finalAvatar) currentUser.avatar = finalAvatar;
 
+            if (auth.currentUser && auth.currentUser.displayName !== currentUser.name) {
+                auth.currentUser.updateProfile({ displayName: currentUser.name })
+                    .catch((profileError) => console.error("No se pudo actualizar el nombre público en Firebase Authentication", profileError));
+            }
             usersRef.child(currentUser.id).update({
                 name: currentUser.name,
                 birthdate: currentUser.birthdate,

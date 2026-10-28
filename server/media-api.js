@@ -33,7 +33,7 @@ const mimeExtensions = new Map([
   ["video/mp4", "mp4"],
   ["video/webm", "webm"],
 ]);
-const allowedScopes = new Set(["chat", "private", "comments", "hero", "ads", "mission-evidence", "mission-video"]);
+const allowedScopes = new Set(["chat", "private", "comments", "hero", "ads", "mission-evidence", "mission-video", "mission-cover"]);
 let firebaseAccessToken = "";
 let firebaseAccessTokenExpiresAt = 0;
 
@@ -237,14 +237,18 @@ async function createMission(request, response) {
   const linkedGameId = typeof body.linkedGameId === "string" ? body.linkedGameId.trim() : "";
   const linkedGameTitle = typeof body.linkedGameTitle === "string" ? body.linkedGameTitle.trim() : "";
   const evidenceType = body.evidenceType;
+  const coverUrl = body.coverUrl;
+  const coverType = body.coverType;
   const rewardXp = Number(body.rewardXp);
   if (title.length < 3 || title.length > 80 || description.length < 10 || description.length > 1200 ||
       linkedGameId.length < 1 || linkedGameId.length > 100 || linkedGameTitle.length < 1 || linkedGameTitle.length > 100 ||
-      !["image", "video"].includes(evidenceType) || !Number.isInteger(rewardXp) || rewardXp < 10 || rewardXp > 5000) {
-    return send(response, 400, { error: "Revisa el título, descripción, juego, tipo de evidencia y recompensa (10–5000 EXP)." });
+      !["image", "video"].includes(evidenceType) || !missionPublicUrl(coverUrl) ||
+      !["image", "video"].includes(coverType) || missionUploadKind(coverUrl) !== coverType ||
+      !Number.isInteger(rewardXp) || rewardXp < 10 || rewardXp > 5000) {
+    return send(response, 400, { error: "Revisa el título, descripción, juego, visual de portada, tipo de evidencia y recompensa (10–5000 EXP)." });
   }
   const id = randomUUID();
-  const mission = { title, description, linkedGameId, linkedGameTitle, evidenceType, rewardXp, active: true, createdAt: new Date().toISOString() };
+  const mission = { title, description, linkedGameId, linkedGameTitle, coverUrl, coverType, evidenceType, rewardXp, active: true, createdAt: new Date().toISOString() };
   await mutateMissionStore((store) => {
     store.missions[id] = mission;
     return { write: true };
@@ -352,6 +356,25 @@ async function handleMissionsApi(request, response, user, path) {
       }));
     return send(response, 200, { leaderboard });
   }
+  const missionGalleryMatch = path.match(/^\/api\/missions\/([0-9a-f-]{36})\/submissions$/i);
+  if (request.method === "GET" && missionGalleryMatch) {
+    const missionId = decodeURIComponent(missionGalleryMatch[1]);
+    const store = await getMissionStore();
+    if (!store.missions[missionId]) return send(response, 404, { error: "No se encontró la misión." });
+    const submissions = missionObjectEntries(store.submissions)
+      .filter(([, submission]) => submission.missionId === missionId && ["pending", "approved"].includes(submission.status))
+      .sort(([, a], [, b]) => String(b.submittedAt).localeCompare(String(a.submittedAt)))
+      .slice(0, 100)
+      .map(([id, submission]) => ({
+        id,
+        displayName: submission.displayName || "Jugador",
+        evidenceUrl: submission.evidenceUrl,
+        evidenceType: submission.evidenceType,
+        status: submission.status,
+        submittedAt: submission.submittedAt,
+      }));
+    return send(response, 200, { submissions });
+  }
   if (!user) return send(response, 401, { error: "Inicia sesión con un correo verificado." });
   const isModerator = moderators.has(user.email);
   if (request.method === "POST" && path === "/api/missions") {
@@ -380,13 +403,18 @@ async function handleUpload(request, response, user) {
   const mime = (request.headers["content-type"] || "").split(";")[0].toLowerCase();
   const extension = mimeExtensions.get(mime);
   const isMissionEvidence = scope === "mission-evidence" || scope === "mission-video";
-  const isMissionImage = scope === "mission-evidence" && mime.startsWith("image/");
-  const isMissionVideo = isMissionEvidence && mime.startsWith("video/");
-  if (!allowedScopes.has(scope) || !extension || (!mime.startsWith("video/") && !isMissionImage) || (scope === "mission-video" && !isMissionVideo)) {
+  const isMissionCover = scope === "mission-cover";
+  const isMissionImage = (scope === "mission-evidence" || isMissionCover) && mime.startsWith("image/");
+  const isMissionVideo = (scope === "mission-video" || isMissionCover) && mime.startsWith("video/");
+  if (!allowedScopes.has(scope) || !extension ||
+      (scope === "mission-evidence" && !isMissionImage) ||
+      (scope === "mission-video" && !isMissionVideo) ||
+      (isMissionCover && !isMissionImage && !isMissionVideo) ||
+      (!isMissionEvidence && !isMissionCover && !mime.startsWith("video/"))) {
     return send(response, 400, { error: "Formato de archivo no admitido para este tipo de subida." });
   }
   const uploadLimit = isMissionImage ? 1024 * 1024 : maxFileBytes;
-  if (["hero", "ads"].includes(scope) && !moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar este recurso." });
+  if (["hero", "ads", "mission-cover"].includes(scope) && !moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar este recurso." });
   if (concurrentUploads >= maxConcurrentUploads) return send(response, 503, { error: "Hay demasiadas subidas simultáneas. Inténtalo de nuevo." });
 
   const now = Date.now();
@@ -398,7 +426,7 @@ async function handleUpload(request, response, user) {
     const bytes = await readBody(request, uploadLimit);
     if (!bytes.length || !matchesSignature(bytes, mime)) return send(response, 415, { error: "El contenido no coincide con el formato de archivo declarado." });
 
-    const uploadDirectory = isMissionEvidence ? "missions" : scope;
+    const uploadDirectory = isMissionEvidence || isMissionCover ? "missions" : scope;
     const path = `public/assets/uploads/${uploadDirectory}/${randomUUID()}.${extension}`;
     const githubResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(githubOwner)}/${encodeURIComponent(githubRepo)}/contents/${path}`, {
       method: "PUT",
@@ -445,7 +473,9 @@ const server = createServer(async (request, response) => {
   }
   if (!setCors(request, response)) return send(response, 403, { error: "Origen no permitido." });
 
-  if (request.method === "GET" && ["/api/missions", "/api/leaderboard"].includes(path)) {
+  if (request.method === "GET" &&
+      (["/api/missions", "/api/leaderboard"].includes(path) ||
+       /^\/api\/missions\/[0-9a-f-]{36}\/submissions$/i.test(path))) {
     try {
       return await handleMissionsApi(request, response, null, path);
     } catch (error) {

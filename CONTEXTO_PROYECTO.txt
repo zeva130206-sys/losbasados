@@ -146,6 +146,15 @@ INTEGRACION DE MISIONES DE COMUNIDAD
 - Las insignias aprobadas aparecen en la clasificación y en las reseñas nuevas
   asociadas a un UID Firebase; las reseñas antiguas no contienen UID y no se
   pueden asociar de forma fiable.
+- El diseño de misiones ahora usa los tokens globales del tema: tarjetas con
+  portadas, formulario de moderación, muro público por misión y recompensas;
+  revisado para tema claro/oscuro.
+- Las rutas de detalle son `#/community/missions/<id>` y la galería pública se
+  obtiene desde `/api/missions/:id/submissions`. Evidencias rechazadas dejan de
+  mostrarse; las pendientes se identifican como en revisión.
+- Moderadores cargan el visual de portada mediante el scope seguro
+  `mission-cover`; el backend comprueba rol, firma, tamaño y origen antes de
+  aceptar una misión con su portada.
 - Render necesita `FIREBASE_SERVICE_ACCOUNT_EMAIL` y
   `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY` como variables privadas. No configurar
   Firestore ni publicar esas claves en el frontend. Ver `server/COMMUNITY_MISSIONS.md`.

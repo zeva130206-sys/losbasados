@@ -209,7 +209,7 @@ function Header(props: {
         </button>
         <button className="lb-icon-button" type="button" onClick={() => invokeLegacy("btnNotif")} aria-label="Abrir notificaciones" title="Notificaciones"><Bell size={17} /></button>
         {user?.isMod && <button className="lb-icon-button lb-mod-button" type="button" onClick={() => invokeLegacy("btnAdminPanel")} aria-label="Abrir panel de moderación" title="Panel de moderación"><Shield size={17} /></button>}
-        <button className="lb-login-button" type="button" onClick={() => invokeLegacy("btnAuth")}>
+        <button className="lb-login-button" type="button" onClick={() => invokeLegacy("btnAuth")} aria-label={user?.name ? `Perfil de ${user.name}` : "Iniciar sesión"}>
           {user?.avatar ? <img src={user.avatar} alt="" /> : null}
           <span>{user?.name || "Ingresar"}</span><ArrowUpRight size={14} />
         </button>

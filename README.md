@@ -36,7 +36,7 @@ El Blueprint ya define el repositorio, la rama, el origen de GitHub Pages y los 
 
 ## Misiones de comunidad
 
-La sección de Comunidad permite a moderadores crear misiones con una recompensa y un tipo de evidencia (captura o video), y revisar los envíos de usuarios con correo verificado. Las misiones y la clasificación se guardan en Firebase Realtime Database bajo `community_missions`; la aprobación actualiza estado, EXP e insignia de manera condicional para impedir recompensas duplicadas. Las capturas deben ser JPEG/PNG/WebP de hasta 1 MB; los videos MP4/WebM, de hasta 24 MB y 30 segundos. Configura las credenciales de servicio solo en el entorno privado de Render. La guía de rutas y configuración está en [server/COMMUNITY_MISSIONS.md](./server/COMMUNITY_MISSIONS.md).
+La sección de Comunidad permite a moderadores publicar misiones con portada y recompensa. Cualquier usuario puede abrir el detalle y participar con una cuenta verificada; las evidencias pendientes y aprobadas aparecen en la galería pública de cada misión. La aprobación actualiza estado, EXP e insignia de forma condicional para impedir recompensas duplicadas. El componente sigue los temas claro y oscuro de la web. Las misiones y la clasificación se guardan en Firebase Realtime Database bajo `community_missions`; configura las credenciales de servicio solo en el entorno privado de Render. Límites y rutas: [server/COMMUNITY_MISSIONS.md](./server/COMMUNITY_MISSIONS.md).
 
 ## Componentes shadcn/ui
 
