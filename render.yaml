@@ -22,8 +22,8 @@ services:
       - key: GITHUB_BRANCH
         value: main
       - key: PUBLIC_SITE_URL
-        value: https://zeva130206-sys.github.io/losbasados
+        value: https://losbasados.dpdns.org
       - key: MODERATOR_EMAILS
         value: esva@losbasados.com,jesuslazarinos0@gmail.com,cargoso@gmail.com,zeva130206@gmail.com
       - key: ALLOWED_ORIGINS
-        value: https://zeva130206-sys.github.io
+        value: https://losbasados.dpdns.org,https://zeva130206-sys.github.io

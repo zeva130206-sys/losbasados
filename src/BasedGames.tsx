@@ -226,6 +226,7 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
   const [form, setForm] = useState<BasedGameForm>(emptyForm);
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [preview, setPreview] = useState<File | null>(null);
+  const [gameArchive, setGameArchive] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState("");
   const [videoPreview, setVideoPreview] = useState("");
   const [recommendationVisible, setRecommendationVisible] = useState(true);
@@ -312,6 +313,7 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
     setForm(emptyForm);
     setThumbnail(null);
     setPreview(null);
+    setGameArchive(null);
   };
 
   const beginEdit = (game: BasedGame) => {
@@ -327,6 +329,7 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
     });
     setThumbnail(null);
     setPreview(null);
+    setGameArchive(null);
     setError("");
     setNotice("");
   };
@@ -345,14 +348,43 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
     setError("");
   };
 
+  const selectGameArchive = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] || null;
+    if (file && (file.type !== "application/zip" && !file.name.toLowerCase().endsWith(".zip"))) {
+      setError("El proyecto del juego debe estar comprimido en formato ZIP.");
+      setGameArchive(null);
+      return;
+    }
+    if (file && file.size > 8 * 1024 * 1024) {
+      setError("El ZIP del juego no puede superar 8 MB comprimidos.");
+      setGameArchive(null);
+      return;
+    }
+    setGameArchive(file);
+    setError("");
+  };
+
+  const uploadGameArchive = async (file: File) => {
+    const headers = await authHeaders();
+    const response = await fetch(apiUrl("/api/based-games/upload"), {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/zip" },
+      body: file,
+    });
+    const payload = await response.json().catch(() => ({})) as { url?: string; error?: string };
+    if (!response.ok || !payload.url) throw new Error(payload.error || "No se pudo publicar el ZIP del juego.");
+    return payload.url;
+  };
+
   const saveGame = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      if (!validGameUrl(form.gameUrl.trim())) throw new Error("El enlace del juego debe ser una URL HTTPS válida.");
+      if (!gameArchive && !validGameUrl(form.gameUrl.trim())) throw new Error("Añade un ZIP con index.html o una URL HTTPS válida para el juego.");
       if (!thumbnail && !editing?.thumbnailUrl) throw new Error("Añade una portada 16:10.");
+      const gameUrl = gameArchive ? await uploadGameArchive(gameArchive) : form.gameUrl.trim();
       const thumbnailUrl = thumbnail
         ? await uploadMedia(thumbnail, "based-game-cover")
         : editing!.thumbnailUrl;
@@ -369,7 +401,7 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
         rating: Number(form.rating),
         thumbnailUrl,
         previewUrl,
-        gameUrl: form.gameUrl.trim(),
+        gameUrl,
       };
       await requestJson(
         editing ? `/api/based-games/${encodeURIComponent(editing.id)}` : "/api/based-games",
@@ -522,7 +554,8 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
                     <label className="lb-based-field">Jugadores<input type="number" min={1} max={1000} step={1} required value={form.players} onChange={(event) => updateForm("players", event.target.value)} /></label>
                     <label className="lb-based-field">Calificación<input type="number" min={0} max={5} step={0.1} required value={form.rating} onChange={(event) => updateForm("rating", event.target.value)} /></label>
                   </div>
-                  <label className="lb-based-field">URL HTTPS del juego HTML<input type="url" required value={form.gameUrl} onChange={(event) => updateForm("gameUrl", event.target.value)} placeholder="https://tus-juegos.example/juego/index.html" /><small>Usa una URL HTTPS a tu juego publicado. El iframe se ejecuta aislado del sitio.</small></label>
+                  <label className="lb-based-field">URL HTTPS del juego (opcional si subes un proyecto)<input type="url" value={form.gameUrl} onChange={(event) => { updateForm("gameUrl", event.target.value); if (event.target.value) setGameArchive(null); }} placeholder="https://tus-juegos.example/juego/index.html" /><small>También puedes subir tu proyecto completo en ZIP. Debe incluir index.html en la raíz; los archivos se publican en una carpeta propia.</small></label>
+                  <label className="lb-based-upload"><Gamepad2 size={18} /><strong>{gameArchive?.name || "Subir proyecto HTML del juego (ZIP)"}</strong><small>ZIP · máximo 8 MB comprimido, 40 archivos y 20 MB descomprimido</small><input type="file" accept=".zip,application/zip" onChange={selectGameArchive} /></label>
                   <div className="lb-based-upload-grid">
                     <label className="lb-based-upload"><ImagePlus size={18} /><strong>{thumbnail?.name || (editing ? "Cambiar portada 16:10" : "Portada 16:10")}</strong><small>JPG, PNG o WebP · máximo 1 MB</small><input type="file" accept="image/jpeg,image/png,image/webp" onChange={selectThumbnail} /></label>
                     <label className="lb-based-upload"><Video size={18} /><strong>{preview?.name || (editing?.previewUrl ? "Cambiar video de preview" : "Video de preview opcional")}</strong><small>MP4/WebM · máximo 24 MB · 30 segundos</small><input type="file" accept="video/mp4,video/webm" onChange={selectPreview} /></label>

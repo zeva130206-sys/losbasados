@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { createSign, randomUUID } from "node:crypto";
+import yauzl from "yauzl";
 
 const requiredEnv = ["FIREBASE_API_KEY", "GITHUB_TOKEN", "GITHUB_OWNER", "GITHUB_REPO", "PUBLIC_SITE_URL", "MODERATOR_EMAILS", "ALLOWED_ORIGINS"];
 const missingEnv = requiredEnv.filter((name) => !process.env[name]);
@@ -20,6 +21,7 @@ const publicSiteUrl = process.env.PUBLIC_SITE_URL.replace(/\/+$/, "");
 const moderators = new Set(process.env.MODERATOR_EMAILS.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean));
 const allowedOrigins = new Set(process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean));
 const maxFileBytes = 24 * 1024 * 1024;
+const maxGameArchiveBytes = 8 * 1024 * 1024;
 const maxConcurrentUploads = 2;
 const uploadWindowMs = 60 * 60 * 1000;
 const uploadsPerWindow = 12;
@@ -47,6 +49,107 @@ class MissionServiceError extends Error {
 function send(response, status, data) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   response.end(JSON.stringify(data));
+}
+
+function openZipBuffer(buffer) {
+  return new Promise((resolve, reject) => yauzl.fromBuffer(buffer, { lazyEntries: true, validateEntrySizes: true }, (error, zip) => {
+    if (error) reject(error);
+    else resolve(zip);
+  }));
+}
+
+function readZipEntry(zip, entry) {
+  return new Promise((resolve, reject) => {
+    zip.openReadStream(entry, (error, stream) => {
+      if (error) return reject(error);
+      const chunks = [];
+      let size = 0;
+      stream.on("data", (chunk) => {
+        size += chunk.length;
+        if (size > 2 * 1024 * 1024) {
+          stream.destroy(new MissionServiceError("Un archivo del ZIP supera 2 MB descomprimidos.", 413));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      stream.on("error", reject);
+      stream.on("end", () => resolve(Buffer.concat(chunks, size)));
+    });
+  });
+}
+
+async function saveGameFile(gameId, filename, bytes) {
+  const path = `public/games/${gameId}/${filename}`;
+  const githubResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(githubOwner)}/${encodeURIComponent(githubRepo)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`, {
+    method: "PUT",
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${githubToken}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json",
+      "User-Agent": "los-basados-media-api",
+    },
+    body: JSON.stringify({ message: `Add game ${gameId} files`, content: bytes.toString("base64"), branch: githubBranch }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!githubResponse.ok) {
+    const details = await githubResponse.text();
+    console.error(`GitHub game upload returned ${githubResponse.status}: ${details.slice(0, 300)}`);
+    throw new MissionServiceError("GitHub no pudo guardar los archivos del juego.", 502);
+  }
+}
+
+async function uploadBasedGameArchive(request, response, user) {
+  if (!moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar juegos." });
+  if (concurrentUploads >= maxConcurrentUploads) return send(response, 503, { error: "Hay demasiadas subidas simultáneas. Inténtalo de nuevo." });
+  concurrentUploads += 1;
+  try {
+    const bytes = await readBody(request, maxGameArchiveBytes, "8 MB");
+    if (bytes.length < 4 || bytes.readUInt32LE(0) !== 0x04034b50) return send(response, 415, { error: "El archivo debe ser un ZIP válido." });
+    const zip = await openZipBuffer(bytes);
+    const gameId = randomUUID();
+    const seen = new Set();
+    const files = [];
+    let totalExpanded = 0;
+    try {
+      await new Promise((resolve, reject) => {
+        zip.on("error", reject);
+        zip.on("end", resolve);
+        zip.on("entry", async (entry) => {
+          try {
+            const name = entry.fileName.replace(/\\/g, "/");
+            if (name.endsWith("/")) { zip.readEntry(); return; }
+            const normalized = name.replace(/^\.\//, "");
+            if (normalized.startsWith("/") || normalized.split("/").some((part) => !part || part === "." || part === "..") || normalized.length > 180 || seen.has(normalized)) {
+              throw new MissionServiceError("El ZIP contiene rutas inválidas o repetidas.", 400);
+            }
+            if (files.length >= 40 || entry.uncompressedSize > 2 * 1024 * 1024 || (totalExpanded += entry.uncompressedSize) > 20 * 1024 * 1024) {
+              throw new MissionServiceError("El ZIP admite hasta 40 archivos, 2 MB por archivo y 20 MB descomprimidos.", 413);
+            }
+            const mode = (entry.externalFileAttributes >>> 16) & 0o170000;
+            if (mode === 0o120000) throw new MissionServiceError("El ZIP no puede incluir enlaces simbólicos.", 400);
+            seen.add(normalized);
+            const content = await readZipEntry(zip, entry);
+            if (content.length !== entry.uncompressedSize) throw new MissionServiceError("Un archivo del ZIP está incompleto.", 400);
+            files.push({ name: normalized, content });
+            zip.readEntry();
+          } catch (error) { reject(error); }
+        });
+        zip.readEntry();
+      });
+    } finally { zip.close(); }
+    const index = files.find((file) => file.name.toLowerCase() === "index.html");
+    if (!index) return send(response, 400, { error: "El ZIP debe contener index.html en su carpeta principal." });
+    for (const file of files) await saveGameFile(gameId, file.name, file.content);
+    const now = Date.now();
+    const recentUploads = (uploadsByUser.get(user.uid) || []).filter((timestamp) => now - timestamp < uploadWindowMs);
+    recentUploads.push(now);
+    uploadsByUser.set(user.uid, recentUploads);
+    return send(response, 201, { url: `${publicSiteUrl}/games/${gameId}/index.html`, fileCount: files.length });
+  } catch (error) {
+    console.error("Based game archive upload failed:", error);
+    return send(response, error.status || 502, { error: error.status ? error.message : "No se pudo procesar o publicar el ZIP." });
+  } finally { concurrentUploads -= 1; }
 }
 
 function setCors(request, response) {
@@ -325,6 +428,7 @@ function validateBasedGame(body) {
 }
 
 async function handleBasedGamesApi(request, response, user, path) {
+  if (request.method === "POST" && path === "/api/based-games/upload") return uploadBasedGameArchive(request, response, user);
   if (request.method === "GET" && path === "/api/based-games") {
     const { data } = await readBasedGamesStore();
     const games = missionObjectEntries(data)

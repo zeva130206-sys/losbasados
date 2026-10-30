@@ -23,9 +23,18 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - name: Preserve custom domain and select Pages base path
+        id: pages-config
+        run: |
+          if [ -f public/CNAME ]; then
+            echo "custom_domain=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "custom_domain=false" >> "$GITHUB_OUTPUT"
+          fi
       - run: npm run build
         env:
           GITHUB_PAGES: "true"
+          GITHUB_CUSTOM_DOMAIN: ${{ steps.pages-config.outputs.custom_domain }}
           VITE_MEDIA_API_URL: ${{ secrets.VITE_MEDIA_API_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:

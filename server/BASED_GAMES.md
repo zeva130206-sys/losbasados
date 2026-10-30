@@ -17,11 +17,15 @@ Cada juego contiene:
 - `players`: cantidad de jugadores admitidos (1–1000).
 - `rating`: calificación de 0 a 5.
 - `mode`: `singleplayer` o `multiplayer`.
-- `gameUrl`: URL HTTPS del HTML publicado.
+- `gameUrl`: URL HTTPS del HTML publicado. Se puede usar un enlace externo o
+  subir un ZIP del proyecto desde el panel de moderación.
 - `createdAt` y `updatedAt`.
 
-Los archivos del juego HTML no se cargan mediante la API de medios. Publica el
-juego en HTTPS y registra su enlace. El iframe permite scripts y pointer lock,
+El ZIP del juego debe tener `index.html` en la raíz. El servicio valida y publica
+hasta 40 archivos (8 MB comprimidos, 2 MB por archivo y 20 MB en total) en
+`public/games/<id>/`, conservando las rutas relativas. Solo moderadores verificados
+pueden subir juegos. También se puede registrar un enlace HTTPS externo. El
+iframe permite scripts y pointer lock,
 pero no concede `allow-same-origin`, navegación superior, formularios ni
 ventanas emergentes. El juego queda aislado del origen de la web; los juegos
 que necesiten cookies, almacenamiento del mismo origen o comunicación entre

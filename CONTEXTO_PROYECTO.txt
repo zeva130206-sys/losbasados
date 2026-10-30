@@ -158,3 +158,18 @@ INTEGRACION DE MISIONES DE COMUNIDAD
 - Render necesita `FIREBASE_SERVICE_ACCOUNT_EMAIL` y
   `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY` como variables privadas. No configurar
   Firestore ni publicar esas claves en el frontend. Ver `server/COMMUNITY_MISSIONS.md`.
+
+ACTUALIZACION 30 OCT 2026
+- GitHub Pages usa `/` cuando el workflow detecta `public/CNAME`; conserva
+  `/<repositorio>/` para la URL github.io de proyecto. El archivo CNAME define
+  `losbasados.dpdns.org`. El error de modulo con MIME text/html era consistente
+  con compilar assets bajo `/losbasados/assets/` para un dominio que los sirve
+  desde `/assets/`.
+- Juegos Basados acepta URL HTTPS o ZIP del proyecto (index.html en la raiz).
+  El backend extrae y publica hasta 40 archivos, 8 MB comprimidos y 20 MB
+  expandidos, en `public/games/<id>/`; solo moderadores verificados pueden subir.
+  El codigo entregado al navegador siempre puede inspeccionarse; minificar u
+  ofuscar solo eleva el esfuerzo, no mantiene secretos.
+- `render.yaml` publica URLs desde el dominio nuevo y permite CORS del dominio;
+  Render debe sincronizar/desplegar estos valores. El workflow Pages debe
+  ejecutarse despues del push para reemplazar el build anterior.
