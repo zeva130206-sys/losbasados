@@ -306,6 +306,7 @@
 
             <div class="admin-tabs">
                 <button class="tab-btn active" id="tabAdminGames" onclick="switchAdminTab('games')">🎮 Juegos</button>
+                <button class="tab-btn" id="tabAdminBasedGames" onclick="switchAdminTab('based-games')">🕹️ Juegos Basados</button>
                 <button class="tab-btn" id="tabAdminNews" onclick="switchAdminTab('news')">📰 Noticias</button>
                 <button class="tab-btn" id="tabAdminGenres" onclick="switchAdminTab('genres')">🏷️ Categorías</button>
                 <button class="tab-btn" id="tabAdminSocial" onclick="switchAdminTab('social')">🌐 Redes Sociales</button>
@@ -461,6 +462,14 @@
 
                 <h4 style="color:#fff; margin:20px 0 10px 0;">Lista de Juegos en Base de Datos:</h4>
                 <div id="adminGamesListContainer" class="admin-list-container"></div>
+            </div>
+
+            <div id="contentAdminBasedGames" class="admin-tab-content hidden">
+                <div class="form-group">
+                    <h4 style="color:var(--neon-red); margin-bottom:8px;">Juegos HTML de la comunidad</h4>
+                    <p style="color:#aaa; line-height:1.6;">Publica y administra portadas, previews y enlaces seguros desde la sección Juegos Basados. Solo moderadores verificados pueden guardar cambios.</p>
+                    <button type="button" class="btn-primary full-width" onclick="window.dispatchEvent(new Event('losbasados:open-based-games-admin'))">ABRIR GESTIÓN DE JUEGOS BASADOS</button>
+                </div>
             </div>
 
             <!-- PESTAÑA 2: NOTICIAS -->

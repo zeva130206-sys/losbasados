@@ -37,6 +37,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import BasedGames from "./BasedGames";
 import CommunityMissions from "./CommunityMissions";
 
 type Game = {
@@ -69,7 +70,7 @@ type News = { id?: string; title: string; date?: string; content?: string };
 type Social = Record<string, string>;
 type FooterContent = { credits: string; tagline: string; eyebrow: string; title: string; description: string };
 type FloatingAd = { id: string; title: string; videoUrl: string; targetGameId: string; position: "top-left" | "top-right" | "bottom-left" | "bottom-right"; intervalMinutes: number; active: boolean };
-type View = "home" | "catalog" | "community" | "wishlist";
+type View = "home" | "catalog" | "based-games" | "community" | "wishlist";
 type LaunchOrigin = { x: number; y: number };
 
 declare global {
@@ -142,6 +143,14 @@ function getInitial<T>(name: string, fallback: T): T {
   return (window.__LOS_BASADOS__?.[name] as T | undefined) ?? fallback;
 }
 
+function viewFromHash(): View {
+  const hash = window.location.hash;
+  return hash.includes("based-games") ? "based-games"
+    : hash.includes("catalog") ? "catalog"
+      : hash.includes("community") ? "community"
+        : hash.includes("wishlist") ? "wishlist" : "home";
+}
+
 function Header(props: {
   view: View;
   onNavigate: (view: View) => void;
@@ -178,6 +187,7 @@ function Header(props: {
       <nav className={`lb-nav${mobileMenu ? " is-open" : ""}`} aria-label="Navegación principal">
         <button className={view === "home" ? "is-active" : ""} type="button" onClick={() => onNavigate("home")}>Inicio</button>
         <button className={view === "catalog" ? "is-active" : ""} type="button" onClick={() => onNavigate("catalog")}>Catálogo</button>
+        <button className={view === "based-games" ? "is-active" : ""} type="button" onClick={() => onNavigate("based-games")}>Juegos Basados</button>
         <button className={view === "community" ? "is-active" : ""} type="button" onClick={onCommunity}>Comunidad</button>
       </nav>
 
@@ -794,7 +804,8 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
   const [user, setUser] = useState<User | null>(() => {
     try { return JSON.parse(localStorage.getItem("basados_user") || "null"); } catch { return null; }
   });
-  const [view, setView] = useState<View>(() => window.location.hash.includes("catalog") ? "catalog" : window.location.hash.includes("community") ? "community" : window.location.hash.includes("wishlist") ? "wishlist" : "home");
+  const [view, setView] = useState<View>(viewFromHash);
+  const [basedGamesAdminOpen, setBasedGamesAdminOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroHovered, setHeroHovered] = useState(false);
@@ -832,14 +843,26 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
       listen<FloatingAd[]>("ads", setAds),
     ];
     const syncHash = () => {
-      const nextView = window.location.hash.includes("catalog") ? "catalog" : window.location.hash.includes("community") ? "community" : window.location.hash.includes("wishlist") ? "wishlist" : "home";
+      const nextView = viewFromHash();
       setView(nextView);
       if (nextView !== "home") setHeroHovered(false);
       setMobileMenu(false);
     };
+    const openBasedGamesAdmin = () => {
+      setBasedGamesAdminOpen(true);
+      setView("based-games");
+      setMobileMenu(false);
+      if (!window.location.hash.includes("based-games")) window.location.hash = "/based-games";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
     window.addEventListener("hashchange", syncHash);
+    window.addEventListener("losbasados:open-based-games-admin", openBasedGamesAdmin);
     document.documentElement.dataset.theme = theme;
-    return () => { cleanups.forEach((cleanup) => cleanup()); window.removeEventListener("hashchange", syncHash); };
+    return () => {
+      cleanups.forEach((cleanup) => cleanup());
+      window.removeEventListener("hashchange", syncHash);
+      window.removeEventListener("losbasados:open-based-games-admin", openBasedGamesAdmin);
+    };
   }, []);
 
   useEffect(() => {
@@ -940,7 +963,7 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
       <Header view={view} onNavigate={navigate} onCommunity={() => navigate("community")} onWishlist={() => navigate("wishlist")} favoritesCount={favorites.length} search={search} onSearch={changeSearch} theme={theme} onTheme={() => setTheme((current) => current === "dark" ? "light" : "dark")} performanceMode={performanceMode} onTogglePerformance={togglePerformanceMode} user={user} online={online} mobileMenu={mobileMenu} onMobileMenu={() => setMobileMenu((current) => !current)} />
       <AnimatePresence>{wishlistNotice && <motion.div className="lb-wishlist-toast" role="status" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}><Bell size={16} /><span>{wishlistNotice}</span><button type="button" onClick={() => setWishlistNotice(null)} aria-label="Cerrar aviso"><X size={15} /></button></motion.div>}</AnimatePresence>
       <AnimatePresence mode="wait" initial={false}>
-        {view === "home" ? <HomePage key="home-page" games={games} featured={featured} heroIndex={heroIndex} setHeroIndex={setHeroIndex} setHeroHovered={setHeroHovered} footer={footer} user={user} favorites={favorites} news={news} socials={socials} online={online} performanceMode={performanceMode} onOpenGame={openGame} onFavorite={toggleFavorite} onCatalog={() => navigate("catalog")} onCommunity={() => navigate("community")} /> : view === "catalog" ? <CatalogPage key="catalog-page" games={games.length ? games : [fallbackGame]} genres={genres} user={user} favorites={favorites} search={search} onSearch={setSearch} onOpenGame={openGame} onFavorite={toggleFavorite} /> : view === "wishlist" ? <WishlistPage key="wishlist-page" games={games} user={user} favorites={favorites} alertIds={wishlistAlerts} onOpen={openGame} onFavorite={toggleFavorite} onToggleAlert={toggleWishlistAlert} onCatalog={() => navigate("catalog")} /> : null}
+        {view === "home" ? <HomePage key="home-page" games={games} featured={featured} heroIndex={heroIndex} setHeroIndex={setHeroIndex} setHeroHovered={setHeroHovered} footer={footer} user={user} favorites={favorites} news={news} socials={socials} online={online} performanceMode={performanceMode} onOpenGame={openGame} onFavorite={toggleFavorite} onCatalog={() => navigate("catalog")} onCommunity={() => navigate("community")} /> : view === "catalog" ? <CatalogPage key="catalog-page" games={games.length ? games : [fallbackGame]} genres={genres} user={user} favorites={favorites} search={search} onSearch={setSearch} onOpenGame={openGame} onFavorite={toggleFavorite} /> : view === "based-games" ? <BasedGames key="based-games-page" isMod={Boolean(user?.isMod)} initialAdminOpen={basedGamesAdminOpen} onAdminOpenChange={setBasedGamesAdminOpen} /> : view === "wishlist" ? <WishlistPage key="wishlist-page" games={games} user={user} favorites={favorites} alertIds={wishlistAlerts} onOpen={openGame} onFavorite={toggleFavorite} onToggleAlert={toggleWishlistAlert} onCatalog={() => navigate("catalog")} /> : null}
       </AnimatePresence>
       <CommunityPage visible={view === "community"} online={online} user={user} games={games} friends={friends} registeredUsers={registeredUsers} onlineUsers={onlineUsers} chatRef={communityChatHost} requestsRef={communityRequestsHost} dmRef={communityDmHost} />
       <AnimatePresence>{visibleAd && <motion.div key={visibleAd.id} initial={{ opacity: 0, scale: 0.94, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.94, y: 12 }}><FloatingAdNotice ad={visibleAd} onClose={() => { adCursor.current += 1; setVisibleAd(null); }} onOpen={() => { const target = games.find((game) => game.id === visibleAd.targetGameId); setVisibleAd(null); if (target) openGame(target); }} performanceMode={performanceMode} /></motion.div>}</AnimatePresence>

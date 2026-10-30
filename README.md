@@ -2,7 +2,7 @@
 
 Página de comunidad y catálogo de juegos con React, Vite y componentes shadcn/ui.
 
-La interfaz presenta dos vistas: Inicio, con el juego destacado y descubrimiento editorial; y Catálogo, con búsqueda, favoritos, filtros por categoría, plataforma y tamaño. Los flujos de Firebase, autenticación, chat y moderación se conservan en el motor legado que conecta estas pantallas con los datos actuales.
+La interfaz presenta Inicio, Catálogo, Juegos Basados, Comunidad y Mi Lista. El catálogo existente conserva búsqueda, favoritos y filtros; Juegos Basados aloja creaciones HTML con fichas, previews y ejecución aislada en el navegador. Los flujos de Firebase, autenticación, chat y moderación se conservan en el motor legado que conecta estas pantallas con los datos actuales.
 
 ## Desarrollo local
 
@@ -22,10 +22,10 @@ Si el repositorio no se llama `<usuario>.github.io`, la dirección publicada nor
 
 ## Subida de imágenes y videos
 
-Las imágenes se guardan comprimidas (máximo 1 MB) en Firebase Realtime Database, como las capturas del muro. Solo los videos pasan por la API Node de `server/media-api.js`, porque GitHub Pages no puede ejecutar ese servicio. Los videos MP4/WebM admiten hasta 24 MB y 30 segundos; el cliente comprueba duración antes de subir y la API valida el tamaño.
+Las imágenes de perfil y otros flujos existentes se guardan comprimidas en Firebase Realtime Database. Los medios de portada y preview de misiones/Juegos Basados usan la API Node de `server/media-api.js`, que los almacena en el repositorio porque GitHub Pages no puede ejecutar ese servicio. Las imágenes admiten hasta 1 MB; los videos MP4/WebM, hasta 24 MB y 30 segundos. El cliente comprueba proporción y duración antes de subir y la API valida permisos, tamaño y firma del archivo.
 
 1. En Render, crea un **Blueprint** desde el repositorio `zeva130206-sys/losbasados` y confirma el despliegue de `render.yaml`.
-2. Cuando Render solicite los valores privados, introduce `FIREBASE_API_KEY` (la clave web de la app en Firebase Console → Project settings → General), `GITHUB_TOKEN` y las credenciales de una cuenta de servicio Firebase (`FIREBASE_SERVICE_ACCOUNT_EMAIL` y `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY`) para las misiones. Crea el token fine-grained con acceso únicamente a este repositorio y permiso **Contents: Read and write**. No pongas tokens ni claves privadas en archivos del proyecto ni los compartas por chat.
+2. Cuando Render solicite los valores privados, introduce `FIREBASE_API_KEY` (la clave web de la app en Firebase Console → Project settings → General), `GITHUB_TOKEN` y las credenciales de una cuenta de servicio Firebase (`FIREBASE_SERVICE_ACCOUNT_EMAIL` y `FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY`) para misiones y Juegos Basados. Crea el token fine-grained con acceso únicamente a este repositorio y permiso **Contents: Read and write**. No pongas tokens ni claves privadas en archivos del proyecto ni los compartas por chat.
 3. Espera a que el servicio `losbasados-media-api` termine el despliegue. Copia su URL pública, por ejemplo `https://losbasados-media-api.onrender.com`.
 4. En GitHub, abre **Settings → Secrets and variables → Actions → New repository secret**. Crea `VITE_MEDIA_API_URL` con la URL de Render, sin `/` al final.
 5. En GitHub, abre **Actions → Deploy to GitHub Pages → Run workflow** para reconstruir la web con esa URL.
@@ -37,6 +37,10 @@ El Blueprint ya define el repositorio, la rama, el origen de GitHub Pages y los 
 ## Misiones de comunidad
 
 La sección de Comunidad permite a moderadores publicar misiones con portada y recompensa. Cualquier usuario puede abrir el detalle y participar con una cuenta verificada; las evidencias pendientes y aprobadas aparecen en la galería pública de cada misión. La aprobación actualiza estado, EXP e insignia de forma condicional para impedir recompensas duplicadas. El componente sigue los temas claro y oscuro de la web. Las misiones y la clasificación se guardan en Firebase Realtime Database bajo `community_missions`; configura las credenciales de servicio solo en el entorno privado de Render. Límites y rutas: [server/COMMUNITY_MISSIONS.md](./server/COMMUNITY_MISSIONS.md).
+
+## Juegos Basados
+
+Los moderadores administran el catálogo desde la pestaña correspondiente del panel existente. Las fichas guardan metadatos en `based_games`; portadas 16:10 y previews se suben mediante scopes de medios con permisos de moderador. Publica el HTML del juego en una URL HTTPS y registra el enlace: se ejecuta en un iframe sandbox sin acceso al origen principal. La sección incluye catálogo, ficha, pantalla completa y recomendaciones cruzadas. Configuración de datos, rutas y límites: [server/BASED_GAMES.md](./server/BASED_GAMES.md).
 
 ## Componentes shadcn/ui
 

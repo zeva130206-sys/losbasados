@@ -2474,6 +2474,9 @@ window.switchAdminTab = function(tab) {
     if (tab === 'games') {
         document.getElementById('tabAdminGames').classList.add('active');
         document.getElementById('contentAdminGames').classList.remove('hidden');
+    } else if (tab === 'based-games') {
+        document.getElementById('tabAdminBasedGames').classList.add('active');
+        document.getElementById('contentAdminBasedGames').classList.remove('hidden');
     } else if (tab === 'news') {
         document.getElementById('tabAdminNews').classList.add('active');
         document.getElementById('contentAdminNews').classList.remove('hidden');

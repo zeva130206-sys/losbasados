@@ -33,7 +33,7 @@ const mimeExtensions = new Map([
   ["video/mp4", "mp4"],
   ["video/webm", "webm"],
 ]);
-const allowedScopes = new Set(["chat", "private", "comments", "hero", "ads", "mission-evidence", "mission-video", "mission-cover"]);
+const allowedScopes = new Set(["chat", "private", "comments", "hero", "ads", "mission-evidence", "mission-video", "mission-cover", "based-game-cover", "based-game-preview"]);
 let firebaseAccessToken = "";
 let firebaseAccessTokenExpiresAt = 0;
 
@@ -54,7 +54,7 @@ function setCors(request, response) {
   if (!origin || !allowedOrigins.has(origin)) return false;
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Vary", "Origin");
-  response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Media-Scope");
   return true;
 }
@@ -110,9 +110,9 @@ function matchesSignature(buffer, mime) {
   return false;
 }
 
-function missionStoreReady() {
+function firebaseStoreReady() {
   if (!serviceAccountEmail || !serviceAccountPrivateKey) {
-    throw new MissionServiceError("Las misiones requieren FIREBASE_SERVICE_ACCOUNT_EMAIL y FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY en el servidor.");
+    throw new MissionServiceError("Las misiones y Juegos Basados requieren FIREBASE_SERVICE_ACCOUNT_EMAIL y FIREBASE_SERVICE_ACCOUNT_PRIVATE_KEY en el servidor.");
   }
 }
 
@@ -121,7 +121,7 @@ function base64Url(value) {
 }
 
 async function getFirebaseAccessToken() {
-  missionStoreReady();
+  firebaseStoreReady();
   if (firebaseAccessToken && Date.now() < firebaseAccessTokenExpiresAt - 60_000) return firebaseAccessToken;
   const now = Math.floor(Date.now() / 1000);
   const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
@@ -206,6 +206,47 @@ async function getMissionStore() {
   };
 }
 
+async function readBasedGamesStore() {
+  const token = await getFirebaseAccessToken();
+  const response = await fetch(`${firebaseDatabaseUrl}/based_games.json`, {
+    headers: { Authorization: `Bearer ${token}`, "X-Firebase-ETag": "true" },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!response.ok) throw new MissionServiceError(`Realtime Database respondió ${response.status} al leer Juegos Basados.`);
+  const data = await response.json();
+  const etag = response.headers.get("ETag");
+  if (!etag) throw new MissionServiceError("Realtime Database no devolvió el ETag necesario para guardar Juegos Basados.");
+  return { data: data && typeof data === "object" ? data : {}, etag };
+}
+
+async function writeBasedGamesStore(data, etag) {
+  const token = await getFirebaseAccessToken();
+  const response = await fetch(`${firebaseDatabaseUrl}/based_games.json`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "If-Match": etag,
+    },
+    body: JSON.stringify(data),
+    signal: AbortSignal.timeout(12000),
+  });
+  if (response.status === 412) return false;
+  if (!response.ok) throw new MissionServiceError(`Realtime Database respondió ${response.status} al guardar Juegos Basados.`);
+  return true;
+}
+
+async function mutateBasedGamesStore(mutator) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const snapshot = await readBasedGamesStore();
+    const games = Object.fromEntries(missionObjectEntries(snapshot.data));
+    const result = mutator(games);
+    if (!result.write) return result.value;
+    if (await writeBasedGamesStore(games, snapshot.etag)) return result.value;
+  }
+  throw new MissionServiceError("No se pudo completar la operación concurrente. Inténtalo de nuevo.", 503);
+}
+
 function missionPublicUrl(value) {
   if (typeof value !== "string" || value.length > 700) return false;
   let url;
@@ -220,6 +261,116 @@ function missionPublicUrl(value) {
   return url.origin === site.origin && url.pathname.startsWith(pathPrefix) &&
     /^\/?[0-9a-f-]{36}\.(?:jpg|png|webp|mp4|webm)$/i.test(url.pathname.slice(pathPrefix.length)) &&
     !url.search && !url.hash;
+}
+
+function basedGameMediaUrl(value, expectedKind) {
+  if (typeof value !== "string" || value.length > 700) return false;
+  let url;
+  let site;
+  try {
+    url = new URL(value);
+    site = new URL(publicSiteUrl);
+  } catch {
+    return false;
+  }
+  const pathPrefix = `${site.pathname.replace(/\/+$/, "")}/assets/uploads/based-games/`;
+  const file = url.pathname.slice(pathPrefix.length);
+  const extension = file.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  const isImage = ["jpg", "png", "webp"].includes(extension);
+  const isVideo = ["mp4", "webm"].includes(extension);
+  return url.origin === site.origin && url.pathname.startsWith(pathPrefix) &&
+    /^\/?[0-9a-f-]{36}\.(?:jpg|png|webp|mp4|webm)$/i.test(file) &&
+    !url.search && !url.hash && (expectedKind === "image" ? isImage : expectedKind === "video" ? isVideo : false);
+}
+
+function validateBasedGame(body) {
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const description = typeof body.description === "string" ? body.description.trim() : "";
+  const genre = typeof body.genre === "string" ? body.genre.trim() : "";
+  const mode = body.mode;
+  const thumbnailUrl = body.thumbnailUrl;
+  const previewUrl = typeof body.previewUrl === "string" ? body.previewUrl.trim() : "";
+  const gameUrl = typeof body.gameUrl === "string" ? body.gameUrl.trim() : "";
+  const players = Number(body.players);
+  const rating = Number(body.rating);
+  let parsedGameUrl;
+  try {
+    parsedGameUrl = new URL(gameUrl);
+  } catch {
+    parsedGameUrl = null;
+  }
+  if (title.length < 2 || title.length > 80 || description.length < 10 || description.length > 1200 ||
+      genre.length < 2 || genre.length > 40 || !["singleplayer", "multiplayer"].includes(mode) ||
+      !Number.isInteger(players) || players < 1 || players > 1000 ||
+      !Number.isFinite(rating) || rating < 0 || rating > 5 ||
+      !basedGameMediaUrl(thumbnailUrl, "image") ||
+      (previewUrl && !basedGameMediaUrl(previewUrl, "video")) ||
+      !parsedGameUrl || parsedGameUrl.protocol !== "https:" || parsedGameUrl.username || parsedGameUrl.password ||
+      gameUrl.length > 1500) {
+    return { error: "Revisa los datos: título, descripción, género, jugadores, modo, calificación, portada, video y una URL HTTPS válida para el juego." };
+  }
+  return {
+    game: {
+      title,
+      description,
+      genre,
+      mode,
+      players,
+      rating: Math.round(rating * 10) / 10,
+      thumbnailUrl,
+      previewUrl,
+      gameUrl: parsedGameUrl.href,
+    },
+  };
+}
+
+async function handleBasedGamesApi(request, response, user, path) {
+  if (request.method === "GET" && path === "/api/based-games") {
+    const { data } = await readBasedGamesStore();
+    const games = missionObjectEntries(data)
+      .map(([id, game]) => ({ id, ...game }))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    return send(response, 200, { games: games.slice(0, 100) });
+  }
+  if (!user) return send(response, 401, { error: "Inicia sesión con un correo verificado." });
+  if (!moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador puede gestionar Juegos Basados." });
+
+  if (request.method === "POST" && path === "/api/based-games") {
+    const result = validateBasedGame(await readJsonBody(request));
+    if (result.error) return send(response, 400, { error: result.error });
+    const id = randomUUID();
+    const game = { ...result.game, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    await mutateBasedGamesStore((games) => {
+      games[id] = game;
+      return { write: true };
+    });
+    return send(response, 201, { id, ...game });
+  }
+
+  const match = path.match(/^\/api\/based-games\/([0-9a-f-]{36})$/i);
+  if (!match) return send(response, 404, { error: "Ruta no encontrada." });
+  const id = match[1];
+  if (request.method === "PUT") {
+    const result = validateBasedGame(await readJsonBody(request));
+    if (result.error) return send(response, 400, { error: result.error });
+    const game = await mutateBasedGamesStore((games) => {
+      if (!games[id]) return { write: false, value: null };
+      games[id] = { ...games[id], ...result.game, updatedAt: new Date().toISOString() };
+      return { write: true, value: games[id] };
+    });
+    if (!game) return send(response, 404, { error: "No se encontró el juego." });
+    return send(response, 200, { id, ...game });
+  }
+  if (request.method === "DELETE") {
+    const removed = await mutateBasedGamesStore((games) => {
+      if (!games[id]) return { write: false, value: false };
+      delete games[id];
+      return { write: true, value: true };
+    });
+    if (!removed) return send(response, 404, { error: "No se encontró el juego." });
+    return send(response, 200, { id, deleted: true });
+  }
+  return send(response, 405, { error: "Método no permitido." });
 }
 
 function missionUploadKind(url) {
@@ -404,17 +555,23 @@ async function handleUpload(request, response, user) {
   const extension = mimeExtensions.get(mime);
   const isMissionEvidence = scope === "mission-evidence" || scope === "mission-video";
   const isMissionCover = scope === "mission-cover";
+  const isBasedGameCover = scope === "based-game-cover";
+  const isBasedGamePreview = scope === "based-game-preview";
   const isMissionImage = (scope === "mission-evidence" || isMissionCover) && mime.startsWith("image/");
   const isMissionVideo = (scope === "mission-video" || isMissionCover) && mime.startsWith("video/");
+  const isBasedGameImage = isBasedGameCover && mime.startsWith("image/");
+  const isBasedGameVideo = isBasedGamePreview && mime.startsWith("video/");
   if (!allowedScopes.has(scope) || !extension ||
       (scope === "mission-evidence" && !isMissionImage) ||
       (scope === "mission-video" && !isMissionVideo) ||
       (isMissionCover && !isMissionImage && !isMissionVideo) ||
-      (!isMissionEvidence && !isMissionCover && !mime.startsWith("video/"))) {
+      (isBasedGameCover && !isBasedGameImage) ||
+      (isBasedGamePreview && !isBasedGameVideo) ||
+      (!isMissionEvidence && !isMissionCover && !isBasedGameCover && !isBasedGamePreview && !mime.startsWith("video/"))) {
     return send(response, 400, { error: "Formato de archivo no admitido para este tipo de subida." });
   }
-  const uploadLimit = isMissionImage ? 1024 * 1024 : maxFileBytes;
-  if (["hero", "ads", "mission-cover"].includes(scope) && !moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar este recurso." });
+  const uploadLimit = isMissionImage || isBasedGameImage ? 1024 * 1024 : maxFileBytes;
+  if (["hero", "ads", "mission-cover", "based-game-cover", "based-game-preview"].includes(scope) && !moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar este recurso." });
   if (concurrentUploads >= maxConcurrentUploads) return send(response, 503, { error: "Hay demasiadas subidas simultáneas. Inténtalo de nuevo." });
 
   const now = Date.now();
@@ -426,7 +583,7 @@ async function handleUpload(request, response, user) {
     const bytes = await readBody(request, uploadLimit);
     if (!bytes.length || !matchesSignature(bytes, mime)) return send(response, 415, { error: "El contenido no coincide con el formato de archivo declarado." });
 
-    const uploadDirectory = isMissionEvidence || isMissionCover ? "missions" : scope;
+    const uploadDirectory = isMissionEvidence || isMissionCover ? "missions" : isBasedGameCover || isBasedGamePreview ? "based-games" : scope;
     const path = `public/assets/uploads/${uploadDirectory}/${randomUUID()}.${extension}`;
     const githubResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(githubOwner)}/${encodeURIComponent(githubRepo)}/contents/${path}`, {
       method: "PUT",
@@ -453,7 +610,11 @@ async function handleUpload(request, response, user) {
     recentUploads.push(now);
     uploadsByUser.set(user.uid, recentUploads);
     const publicUrl = `${publicSiteUrl}/assets/uploads/${uploadDirectory}/${path.split("/").pop()}`;
-    return send(response, 201, { url: publicUrl, scope: isMissionEvidence ? "mission-evidence" : scope, mediaType: isMissionVideo ? "video" : isMissionImage ? "image" : "video" });
+    return send(response, 201, {
+      url: publicUrl,
+      scope,
+      mediaType: isMissionVideo || isBasedGameVideo ? "video" : isMissionImage || isBasedGameImage ? "image" : "video",
+    });
   } catch (error) {
     console.error("Media upload failed:", error);
     return send(response, error.status || 502, { error: error.status ? error.message : "No se pudo guardar el archivo en GitHub." });
@@ -474,16 +635,18 @@ const server = createServer(async (request, response) => {
   if (!setCors(request, response)) return send(response, 403, { error: "Origen no permitido." });
 
   if (request.method === "GET" &&
-      (["/api/missions", "/api/leaderboard"].includes(path) ||
+      (["/api/missions", "/api/leaderboard", "/api/based-games"].includes(path) ||
        /^\/api\/missions\/[0-9a-f-]{36}\/submissions$/i.test(path))) {
     try {
+      if (path.startsWith("/api/based-games")) return await handleBasedGamesApi(request, response, null, path);
       return await handleMissionsApi(request, response, null, path);
     } catch (error) {
       console.error("Mission API request failed:", error);
       return send(response, error.status || 503, { error: error.message || "El servicio de misiones no está disponible." });
     }
   }
-  if (path !== "/api/media" && !path.startsWith("/api/missions/") && path !== "/api/missions") {
+  if (path !== "/api/media" && !path.startsWith("/api/missions/") && path !== "/api/missions" &&
+      !path.startsWith("/api/based-games")) {
     return send(response, 404, { error: "Ruta no encontrada." });
   }
 
@@ -491,6 +654,7 @@ const server = createServer(async (request, response) => {
     const user = await verifyFirebaseUser(request);
     if (!user) return send(response, 401, { error: "Inicia sesión con un correo verificado para subir archivos." });
     if (path === "/api/media" && request.method === "POST") return await handleUpload(request, response, user);
+    if (path.startsWith("/api/based-games")) return await handleBasedGamesApi(request, response, user, path);
     return await handleMissionsApi(request, response, user, path);
   } catch (error) {
     console.error("Media or mission API request failed:", error);
