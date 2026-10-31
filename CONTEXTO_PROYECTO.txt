@@ -173,3 +173,16 @@ ACTUALIZACION 30 OCT 2026
 - `render.yaml` publica URLs desde el dominio nuevo y permite CORS del dominio;
   Render debe sincronizar/desplegar estos valores. El workflow Pages debe
   ejecutarse despues del push para reemplazar el build anterior.
+
+ACTUALIZACION 31 OCT 2026
+- El juego subido con ID 759a81f1-ed8e-40a0-82e3-4e9d8fd1d414 fallo porque
+  su index.html apuntaba a /src/main.tsx, entrada de desarrollo Vite que Pages
+  no compila. El HTML se debe compilar para produccion antes de subir.
+- El uploader ahora detecta la entrada Vite de desarrollo y rutas locales
+  absolutas, y devuelve instrucciones. Acepta tambien archivos de dist/ si
+  contiene el build estatico correcto. Para Vite configurar base: "./" y subir
+  los archivos de dist (index.html en raiz) para que el iframe bajo /games/<id>/
+  encuentre sus assets.
+- Los avisos de bbox de la fuente Font Awesome son advertencias del archivo de
+  fuente y no causan el iframe en blanco; el error que lo causa es el modulo
+  ausente /src/main.tsx.

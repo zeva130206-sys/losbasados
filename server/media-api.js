@@ -99,6 +99,16 @@ async function saveGameFile(gameId, filename, bytes) {
   }
 }
 
+function inspectGameIndex(html) {
+  if (/(?:src|href)=["'][^"']*(?:\/src\/main\.(?:tsx?|jsx?)|\/?@vite\/client)/i.test(html)) {
+    return "El ZIP contiene la entrada de desarrollo de Vite (src/main.tsx). Compila el juego para producción y sube el contenido de dist, no el código fuente.";
+  }
+  if (/(?:src|href)=["']\/(?!\/)[^"']+/i.test(html)) {
+    return "El HTML apunta a archivos desde la raíz del dominio. En Vite configura base: './', vuelve a compilar y sube el contenido de dist.";
+  }
+  return "";
+}
+
 async function uploadBasedGameArchive(request, response, user) {
   if (!moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar juegos." });
   if (concurrentUploads >= maxConcurrentUploads) return send(response, 503, { error: "Hay demasiadas subidas simultáneas. Inténtalo de nuevo." });
@@ -138,14 +148,24 @@ async function uploadBasedGameArchive(request, response, user) {
         zip.readEntry();
       });
     } finally { zip.close(); }
-    const index = files.find((file) => file.name.toLowerCase() === "index.html");
-    if (!index) return send(response, 400, { error: "El ZIP debe contener index.html en su carpeta principal." });
-    for (const file of files) await saveGameFile(gameId, file.name, file.content);
+    let publishFiles = files;
+    let index = publishFiles.find((file) => file.name.toLowerCase() === "index.html");
+    const rootIndexError = index ? inspectGameIndex(index.content.toString("utf8")) : "";
+    const distFiles = files.filter((file) => file.name.startsWith("dist/"));
+    const distIndex = distFiles.find((file) => file.name.toLowerCase() === "dist/index.html");
+    if (rootIndexError && distIndex) {
+      publishFiles = distFiles.map((file) => ({ ...file, name: file.name.slice("dist/".length) }));
+      index = publishFiles.find((file) => file.name.toLowerCase() === "index.html");
+    }
+    if (!index) return send(response, 400, { error: "El ZIP debe contener index.html en la raíz, o una carpeta dist/ con el build listo para publicar." });
+    const indexError = inspectGameIndex(index.content.toString("utf8"));
+    if (indexError) return send(response, 400, { error: indexError });
+    for (const file of publishFiles) await saveGameFile(gameId, file.name, file.content);
     const now = Date.now();
     const recentUploads = (uploadsByUser.get(user.uid) || []).filter((timestamp) => now - timestamp < uploadWindowMs);
     recentUploads.push(now);
     uploadsByUser.set(user.uid, recentUploads);
-    return send(response, 201, { url: `${publicSiteUrl}/games/${gameId}/index.html`, fileCount: files.length });
+    return send(response, 201, { url: `${publicSiteUrl}/games/${gameId}/index.html`, fileCount: publishFiles.length });
   } catch (error) {
     console.error("Based game archive upload failed:", error);
     return send(response, error.status || 502, { error: error.status ? error.message : "No se pudo procesar o publicar el ZIP." });

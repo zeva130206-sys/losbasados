@@ -40,7 +40,7 @@ La sección de Comunidad permite a moderadores publicar misiones con portada y r
 
 ## Juegos Basados
 
-Los moderadores administran el catálogo desde la pestaña correspondiente del panel existente. Las fichas guardan metadatos en `based_games`; portadas 16:10 y previews se suben mediante scopes de medios con permisos de moderador. Publica el juego en una URL HTTPS y registra el enlace, o sube un ZIP del proyecto con `index.html` en la raíz desde el panel de moderación. El ZIP se publica en una carpeta propia para conservar CSS, JavaScript y otros recursos relativos. El iframe se ejecuta aislado del origen principal. Configuración de datos, rutas y límites: [server/BASED_GAMES.md](./server/BASED_GAMES.md).
+Los moderadores administran el catálogo desde la pestaña correspondiente del panel existente. Las fichas guardan metadatos en `based_games`; portadas 16:10 y previews se suben mediante scopes de medios con permisos de moderador. Publica el juego en una URL HTTPS y registra el enlace, o sube un ZIP con el build estático listo, `index.html` y sus recursos. Para Vite, configura `base: "./"`, compila y comprime los archivos de `dist`. El iframe se ejecuta aislado del origen principal. Configuración de datos, rutas y límites: [server/BASED_GAMES.md](./server/BASED_GAMES.md).
 
 ## Componentes shadcn/ui
 

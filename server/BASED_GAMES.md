@@ -21,8 +21,12 @@ Cada juego contiene:
   subir un ZIP del proyecto desde el panel de moderación.
 - `createdAt` y `updatedAt`.
 
-El ZIP del juego debe tener `index.html` en la raíz. El servicio valida y publica
-hasta 40 archivos (8 MB comprimidos, 2 MB por archivo y 20 MB en total) en
+El ZIP debe contener el build estático listo, con `index.html` en la raíz (también
+se acepta el build dentro de `dist/`). Para proyectos Vite, configura `base: "./"`
+y comprime el contenido de `dist`, no el código fuente ni la página de desarrollo.
+El servicio rechaza la entrada `/src/main.tsx` y las rutas locales absolutas que
+apuntan fuera de la carpeta del juego. Valida y publica hasta 40 archivos (8 MB
+comprimidos, 2 MB por archivo y 20 MB en total) en
 `public/games/<id>/`, conservando las rutas relativas. Solo moderadores verificados
 pueden subir juegos. También se puede registrar un enlace HTTPS externo. El
 iframe permite scripts y pointer lock,
