@@ -1,0 +1,6 @@
+{
+  "name": "Los Basados: Furia Callejera",
+  "description": "Juego oficial de plataformas beat 'em up para Los Basados con estilo pixel art retro NES. Personaliza tu nombre (por defecto: Basado), suelta frases basadas en combate y juega con mandos o controles táctiles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
