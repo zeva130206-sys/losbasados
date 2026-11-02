@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 160 160" shape-rendering="crispEdges">
+  <ellipse cx="80" cy="148" rx="51" ry="7" fill="#10151e" opacity=".35"/>
+  <path d="M54 22h52v12h12v94l-10 12H52l-10-12V34h12Z" fill="#273548" stroke="#121925" stroke-width="5"/>
+  <path d="M62 15h36v13H62Z" fill="#151d2a" stroke="#8b9cae" stroke-width="3"/><path d="M48 44h64v75H48Z" fill="#3a4c60" stroke="#9ba9b6" stroke-width="3"/>
+  <path d="M55 54h50v49H55Z" fill="#141e2b" stroke="#d42b4b" stroke-width="3"/><path d="M61 73h38v20H61Z" fill="#b6203d"/><path d="M63 77h34v5H63Z" fill="#f44964"/><path d="M56 108h49" stroke="#ff5470" stroke-width="5"/>
+  <text x="80" y="67" text-anchor="middle" font-family="monospace" font-weight="900" font-size="8" fill="#ffe2e8">COOLANT</text><text x="80" y="88" text-anchor="middle" font-family="monospace" font-weight="900" font-size="8" fill="#fff">CRIMSON</text>
+  <path d="M48 35h64m-62 91h60" stroke="#d3dce5" stroke-width="3"/><path d="M55 131h50v8H55Z" fill="#d2a05a"/>
+</svg>
