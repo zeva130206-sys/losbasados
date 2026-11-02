@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1980" viewBox="0 0 1200 1980" shape-rendering="crispEdges">
+  <defs>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#a8b2bf" stroke-width="1"/></pattern>
+    <linearGradient id="coat" x2="0" y2="1"><stop stop-color="#ff5367"/><stop offset=".45" stop-color="#c11e3a"/><stop offset="1" stop-color="#64152c"/></linearGradient>
+    <linearGradient id="metal" x2="0" y2="1"><stop stop-color="#b9d0df"/><stop offset="1" stop-color="#43566e"/></linearGradient>
+    <g id="vaze">
+      <path d="M26 40 8 78 1 105 20 95 32 77 34 121 72 121 75 77 97 105 107 100 88 63 77 42Z" fill="url(#coat)" stroke="#251b2a" stroke-width="4"/>
+      <path d="m28 45-13 30 10-5 9-15m43-9 12 27-11-4-9-15" fill="#49c9f5"/>
+      <path d="M31 42 43 35 68 35 81 44 76 76 62 87 37 73Z" fill="#18202d" stroke="#111827" stroke-width="4"/>
+      <path d="m38 45 12 8 14-1 10-8-4 29-15 8-14-9Z" fill="#293747"/>
+      <path d="M38 36 35 18 43 5 68 4 81 14 78 30 69 41 48 42Z" fill="#d49270" stroke="#241d26" stroke-width="4"/>
+      <path d="M32 17 38 3 72 1 83 10 83 19 72 16 42 19 36 26Z" fill="#151823" stroke="#05070c" stroke-width="4"/>
+      <path d="M32 14 24 12 25 20 38 21" fill="#d22e49" stroke="#141923" stroke-width="3"/>
+      <path d="m47 25 9 2 9-3" fill="none" stroke="#3b1420" stroke-width="3"/>
+      <path d="M46 43 37 53 28 68 34 74 49 60M70 44l11 8 8 13-6 7-16-14" fill="#d49270" stroke="#251b2a" stroke-width="4"/>
+      <path d="m40 78 15 5-2 30-6 18H31l7-19Zm21 5 14-5 7 36 9 17H73l-12-17Z" fill="#202b3a" stroke="#111827" stroke-width="4"/>
+      <path d="M31 126h17l-2 9H25Zm45 0h15l8 9H77Z" fill="#11151e" stroke="#05070c" stroke-width="3"/>
+      <path d="m44 84 8 3m15-3 8-3" stroke="#839bb1" stroke-width="3"/>
+      <path d="m34 49 5 3m36-3 5-3" stroke="#e9c76f" stroke-width="3"/>
+    </g>
+    <g id="andore">
+      <path d="M24 30 12 16 23 4 32 12 46 8 58 14 70 5 82 15 75 31Z" fill="#382219" stroke="#10131c" stroke-width="4"/>
+      <path d="M29 23 72 23 81 43 74 64 28 64 20 43Z" fill="#b47639" stroke="#22202a" stroke-width="4"/>
+      <path d="m30 34 43-1-4 23H33Z" fill="#153546" stroke="#43d9ff" stroke-width="3"/>
+      <path d="m29 64-9 29 16 4 13-23 8 23 18-2-4-31Z" fill="#26354b" stroke="#121825" stroke-width="4"/>
+      <path d="M22 37 5 58l11 10 18-13m39-18 20 15-9 13-22-12" fill="#a96832" stroke="#22202a" stroke-width="5"/>
+      <path d="m24 13 16-6 7 7-16 8m25-10 15-5 6 8-17 7" fill="#573826"/>
+      <path d="m21 47 13-3m31 2 13-3" stroke="#f6ca5a" stroke-width="4"/>
+    </g>
+    <g id="pc">
+      <path d="M5 4h93v144H5Z" fill="#101725" stroke="#07101b" stroke-width="6"/>
+      <path d="M13 12h76v128H13Z" fill="#1b2c42" stroke="#d3264b" stroke-width="4"/>
+      <path d="M20 20h49v111H20Z" fill="#101c2c" stroke="#5c7188" stroke-width="3"/>
+      <g fill="none" stroke-width="5"><circle cx="45" cy="45" r="16" stroke="#ff3763"/><circle cx="45" cy="45" r="9" stroke="#6ce8ff"/><circle cx="45" cy="83" r="16" stroke="#ad5fff"/><circle cx="45" cy="83" r="9" stroke="#58e8e2"/><circle cx="45" cy="120" r="11" stroke="#ffcf48"/></g>
+      <path d="M72 25h11v97H72Z" fill="#09111d" stroke="#60758b" stroke-width="2"/>
+      <path d="M74 39h7v28h-7m0 16h7v26h-7" fill="none" stroke="#f94365" stroke-width="3"/>
+      <path d="M28 149h53v8H28Z" fill="#68778b"/>
+    </g>
+    <g id="spark"><path d="m22 0 5 14 13-9-7 15 17 1-17 6 8 14-15-9-4 16-4-16-15 9 8-15L0 21l17-2L10 4l12 10Z" fill="#fff1a5" stroke="#ff684e" stroke-width="3"/></g>
+    <style>
+      .label{font:700 21px 'Courier New',monospace;fill:#151b25;letter-spacing:1px}.small{font:700 13px 'Courier New',monospace;fill:#374151}.title{font:900 37px 'Courier New',monospace;fill:#10151d;stroke:#fff;stroke-width:1}.red{fill:#d52b47}.panel{fill:#f4f6f8;stroke:#263243;stroke-width:3}.chip{fill:#141d2c;stroke:#566579;stroke-width:2}
+    </style>
+  </defs>
+  <rect width="1200" height="1980" fill="#d9e0e7"/><rect width="1200" height="1980" fill="url(#grid)"/>
+  <rect x="24" y="20" width="1152" height="66" rx="4" fill="#edf1f4" stroke="#273445" stroke-width="3"/>
+  <text x="45" y="65" class="title">LOS BASADOS: FURIA CALLEJERA</text><text x="1012" y="64" class="label red">ASSETS v2.0</text>
+
+  <text x="32" y="125" class="label">VAZE · LÍDER / REDISEÑO CARMESÍ</text>
+  <rect x="25" y="140" width="1150" height="270" rx="8" class="panel"/>
+  <g transform="translate(80 185) scale(1.25)"><use href="#vaze"/></g><text x="94" y="370" class="small">IDLE</text>
+  <g transform="translate(280 185) scale(1.25)"><use href="#vaze"/><path d="M92 64h45l18-9-7 13h-52" fill="#d49270" stroke="#251b2a" stroke-width="4"/><path d="M145 58h27" stroke="#75e8ff" stroke-width="4"/></g><text x="293" y="370" class="small">JAB · HIT 1</text>
+  <g transform="translate(485 185) scale(1.25)"><use href="#vaze"/><path d="m98 56 20-15 21 4-17 8 19 5-24 3 11 13-22-7" fill="#ef4761" stroke="#fff0f2" stroke-width="3"/></g><text x="494" y="370" class="small">TAJO · HIT 3</text>
+  <g transform="translate(690 177) rotate(-12 65 75) scale(1.22)"><use href="#vaze"/><ellipse cx="60" cy="72" rx="70" ry="38" fill="none" stroke="#55dfff" stroke-width="5" stroke-dasharray="18 8"/><ellipse cx="60" cy="72" rx="62" ry="31" fill="none" stroke="#ef4761" stroke-width="3"/></g><text x="700" y="370" class="small">PATADA AÉREA</text>
+  <g transform="translate(935 198) scale(.9)"><use href="#vaze"/><circle cx="109" cy="68" r="21" fill="#240c26" stroke="#ed3b70" stroke-width="5"/><path d="m109 38 3 21 18-12-11 19 22 3-22 5 13 17-20-12-5 22-4-22-18 12 11-19-21-3 22-5-13-17 20 12Z" fill="#ff506c"/></g><text x="947" y="370" class="small">SUPER · NEO-FURIA</text>
+
+  <text x="32" y="455" class="label">ALIADOS Y PALETAS</text><rect x="25" y="470" width="550" height="260" rx="8" class="panel"/><rect x="595" y="470" width="580" height="260" rx="8" class="panel"/>
+  <g transform="translate(70 515) scale(.9)"><use href="#vaze"/><path d="M35 45h7v28h-7m34-28h7v28h-7" fill="#42d9f4"/></g><text x="58" y="685" class="small">VAZE TAG · CIANO / RELEVO</text>
+  <g transform="translate(305 515) scale(.9)"><use href="#vaze"/><path d="M22 48 5 62 9 75 26 64m52-16 18 13-5 13-18-13" fill="#47d8f5"/></g><text x="327" y="685" class="small">EURASIA · GRAFITI</text>
+  <g transform="translate(690 525) scale(.82)"><path d="M15 34 27 12 51 12 63 34 72 90H5Z" fill="#ed3153" stroke="#21202b" stroke-width="5"/><path d="M25 40h28v43H25Z" fill="#283249"/><path d="M12 45h7v8h-7m48-7h9v8h-9" fill="#42d8ff"/><path d="M24 85h14v11H18Zm30 0h14v11H49Z" fill="#10151e"/><circle cx="39" cy="25" r="13" fill="#ce8c69"/><path d="M21 22 29 8 51 8 60 20" fill="#151823"/></g>
+  <g transform="translate(850 520) scale(.92)"><use href="#andore"/></g><text x="846" y="685" class="small">MAD GEAR · MATÓN NEÓN</text>
+
+  <text x="32" y="775" class="label">CLAN ANDORE · CIBORG Y GLADIADOR</text><rect x="25" y="790" width="1150" height="230" rx="8" class="panel"/>
+  <g transform="translate(180 820) scale(1.2)"><use href="#andore"/><path d="M72 37h20v8H72m5 9 17-8 6 8-17 10Z" fill="url(#metal)" stroke="#10151e" stroke-width="4"/><circle cx="87" cy="45" r="5" fill="#43e0ff"/></g><text x="158" y="990" class="small">ANDORE JR. · BRAZO CYBORG</text>
+  <g transform="translate(610 820) scale(1.2)"><use href="#andore"/><path d="m24 21 14-15 15 9 16-12 15 16-8 9-17-8-15 8Z" fill="#f3b943" stroke="#10151e" stroke-width="4"/><path d="m29 35 43-2-2 8-39 4Z" fill="#ff4965"/></g><text x="588" y="990" class="small">ANDORE SENIOR · SPARTACO 2.0</text>
+  <g transform="translate(930 838)"><path d="M10 7h30v43H10Z" fill="#f5f7fa" stroke="#202938" stroke-width="3"/><path d="M15 15h20v4H15m0 8h15v3H15" fill="#293449"/><path d="M21 52h8v18h-8Z" fill="#1d2735"/></g><text x="922" y="938" class="small">FRIKI HACKER</text>
+
+  <text x="32" y="1060" class="label">OBJETOS · LA BABY PC Y REFRIGERANTE</text><rect x="25" y="1075" width="550" height="245" rx="8" class="panel"/><rect x="595" y="1075" width="580" height="245" rx="8" class="panel"/>
+  <g transform="translate(210 1095) scale(1.15)"><use href="#pc"/></g><text x="190" y="1295" class="small">LA BABY · TORRE RGB</text>
+  <g transform="translate(805 1125)"><path d="M20 20h115v120H20Z" fill="#273244" stroke="#131927" stroke-width="6"/><path d="M30 30h95v100H30Z" fill="#3e5368" stroke="#9aabb9" stroke-width="3"/><path d="M41 47h73v55H41Z" fill="#07131f" stroke="#ed2852" stroke-width="4"/><path d="M45 69h64v9H45Z" fill="#dc2448"/><path d="m41 111 70 0" stroke="#ff556d" stroke-width="5"/><text x="46" y="94" font-family="monospace" font-size="12" fill="#ffd3dc">COOLANT</text></g><text x="790" y="1295" class="small">BIDÓN · COOLANT CARMESÍ</text>
+
+  <text x="32" y="1360" class="label">CINEMÁTICAS · 4 MOMENTOS CLAVE</text><rect x="25" y="1375" width="1150" height="230" rx="8" class="panel"/>
+  <g>
+    <rect x="42" y="1394" width="267" height="156" fill="#101a2a" stroke="#566579" stroke-width="3"/><path d="M55 1515h240v15H55Z" fill="#65758a"/><g transform="translate(155 1410) scale(.6)"><use href="#pc"/></g><text x="62" y="1540" class="small">1 · BÚNKER</text>
+    <rect x="326" y="1394" width="267" height="156" fill="#30131d" stroke="#566579" stroke-width="3"/><path d="M340 1405h54v120h-54Z" fill="#738093"/><path d="m386 1405 45 30-17 57-31 20" fill="#222e3e"/><g transform="translate(490 1440) scale(.55)"><use href="#andore"/></g><use href="#spark" transform="translate(435 1415) scale(.7)"/><text x="346" y="1540" class="small">2 · ASALTO</text>
+    <rect x="610" y="1394" width="267" height="156" fill="#101f35" stroke="#566579" stroke-width="3"/><path d="M612 1495h263v38H612Z" fill="#2d465f"/><path d="M620 1515h245" stroke="#ff4965" stroke-width="4" stroke-dasharray="12 8"/><g transform="translate(670 1410) scale(.55)"><use href="#vaze"/></g><text x="628" y="1540" class="small">3 · PERSECUCIÓN</text>
+    <rect x="894" y="1394" width="263" height="156" fill="#24101f" stroke="#566579" stroke-width="3"/><g transform="translate(927 1412) scale(.7)"><use href="#vaze"/></g><path d="m1015 1468 28-48 30 47-31-13Z" fill="#ef3765"/><path d="M1034 1407h48m-24-22v46" stroke="#76e9ff" stroke-width="4"/><text x="912" y="1540" class="small">4 · JURAMENTO</text>
+  </g>
+
+  <text x="32" y="1640" class="label">CICLO DE CAMINATA · EXPRESIONES · IMPACTOS</text><rect x="25" y="1655" width="720" height="190" rx="8" class="panel"/><rect x="765" y="1655" width="410" height="190" rx="8" class="panel"/>
+  <g transform="translate(48 1680) scale(.62)"><use href="#vaze"/></g><g transform="translate(190 1680) scale(.62)"><use href="#vaze"/><path d="m42 120 8 5 8-5" fill="#b93b50"/></g><g transform="translate(332 1680) scale(.62)"><use href="#vaze"/><path d="m36 122 12-8 6 10 8-10 12 8" fill="#b93b50"/></g><g transform="translate(474 1680) scale(.62)"><use href="#vaze"/><path d="m30 120 18-3 7 8 15-12" fill="#b93b50"/></g><text x="57" y="1820" class="small">1 · CONTACTO</text><text x="201" y="1820" class="small">2 · APOYO</text><text x="348" y="1820" class="small">3 · PASO</text><text x="490" y="1820" class="small">4 · IMPULSO</text>
+  <g transform="translate(797 1690)"><rect width="130" height="105" rx="5" class="chip"/><path d="M40 30h38v34H40Z" fill="#d49270"/><circle cx="52" cy="42" r="7" fill="#fff"/><circle cx="69" cy="42" r="7" fill="#fff"/><circle cx="52" cy="42" r="3" fill="#111"/><circle cx="69" cy="42" r="3" fill="#111"/><path d="M50 54h25v9H50Z" fill="#451a03"/><path d="m35 26-9-14m58 15 11-12" stroke="#55dfff" stroke-width="4"/><text x="65" y="91" text-anchor="middle" class="small" fill="#fff">SCARED</text></g>
+  <g transform="translate(945 1690)"><rect width="130" height="105" rx="5" class="chip"/><path d="M40 30h38v34H40Z" fill="#d49270"/><path d="M48 43h10m9 0h10" stroke="#161924" stroke-width="4"/><path d="m45 35 13 8m18-8L63 44" stroke="#111" stroke-width="3"/><path d="M50 55h24v4H50Z" fill="#8d273c"/><path d="M42 40h10v8H42Z" fill="#80405b" opacity=".75"/><text x="65" y="91" text-anchor="middle" class="small" fill="#fff">HURT</text></g>
+  <g transform="translate(1090 1700) scale(.85)"><use href="#spark"/><use href="#spark" transform="translate(14 42) scale(.7)"/><use href="#spark" transform="translate(48 16) scale(.55)"/></g><text x="1088" y="1820" class="small">HIT FX</text>
+
+  <rect x="76" y="1870" width="1048" height="78" rx="12" fill="#303b4a" stroke="#101722" stroke-width="5"/><rect x="87" y="1881" width="1026" height="56" rx="8" fill="#596575" stroke="#8794a2" stroke-width="2"/><text x="600" y="1917" text-anchor="middle" font-family="monospace" font-size="19" font-weight="900" fill="#f1f4f8">GAME ASSETS v2.0 · LOS BASADOS: FURIA CALLEJERA · PROYECTO VAZE</text>
+</svg>
