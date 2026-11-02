@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { createSign, randomUUID } from "node:crypto";
 import yauzl from "yauzl";
+import { basedGameUploadLimits } from "../shared/based-game-upload-limits.js";
 
 const requiredEnv = ["FIREBASE_API_KEY", "GITHUB_TOKEN", "GITHUB_OWNER", "GITHUB_REPO", "PUBLIC_SITE_URL", "MODERATOR_EMAILS", "ALLOWED_ORIGINS"];
 const missingEnv = requiredEnv.filter((name) => !process.env[name]);
@@ -21,12 +22,16 @@ const publicSiteUrl = process.env.PUBLIC_SITE_URL.replace(/\/+$/, "");
 const moderators = new Set(process.env.MODERATOR_EMAILS.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean));
 const allowedOrigins = new Set(process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean));
 const maxFileBytes = 24 * 1024 * 1024;
-const maxGameArchiveBytes = 8 * 1024 * 1024;
+const maxGameArchiveBytes = basedGameUploadLimits.archiveMb * 1024 * 1024;
+const maxGameFileBytes = basedGameUploadLimits.fileMb * 1024 * 1024;
+const maxGameExpandedBytes = basedGameUploadLimits.expandedMb * 1024 * 1024;
 const maxConcurrentUploads = 2;
+const maxConcurrentGameUploads = 1;
 const uploadWindowMs = 60 * 60 * 1000;
 const uploadsPerWindow = 12;
 const uploadsByUser = new Map();
 let concurrentUploads = 0;
+let concurrentGameUploads = 0;
 
 const mimeExtensions = new Map([
   ["image/jpeg", "jpg"],
@@ -66,8 +71,8 @@ function readZipEntry(zip, entry) {
       let size = 0;
       stream.on("data", (chunk) => {
         size += chunk.length;
-        if (size > 2 * 1024 * 1024) {
-          stream.destroy(new MissionServiceError("Un archivo del ZIP supera 2 MB descomprimidos.", 413));
+        if (size > maxGameFileBytes) {
+          stream.destroy(new MissionServiceError(`Un archivo del ZIP supera ${basedGameUploadLimits.fileMb} MB descomprimidos.`, 413));
           return;
         }
         chunks.push(chunk);
@@ -78,10 +83,9 @@ function readZipEntry(zip, entry) {
   });
 }
 
-async function saveGameFile(gameId, filename, bytes) {
-  const path = `public/games/${gameId}/${filename}`;
-  const githubResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(githubOwner)}/${encodeURIComponent(githubRepo)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`, {
-    method: "PUT",
+async function requestGitHubJson(path, method = "GET", body) {
+  const githubResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(githubOwner)}/${encodeURIComponent(githubRepo)}/${path}`, {
+    method,
     headers: {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${githubToken}`,
@@ -89,7 +93,7 @@ async function saveGameFile(gameId, filename, bytes) {
       "Content-Type": "application/json",
       "User-Agent": "los-basados-media-api",
     },
-    body: JSON.stringify({ message: `Add game ${gameId} files`, content: bytes.toString("base64"), branch: githubBranch }),
+    ...(body ? { body: JSON.stringify(body) } : {}),
     signal: AbortSignal.timeout(30000),
   });
   if (!githubResponse.ok) {
@@ -97,6 +101,36 @@ async function saveGameFile(gameId, filename, bytes) {
     console.error(`GitHub game upload returned ${githubResponse.status}: ${details.slice(0, 300)}`);
     throw new MissionServiceError("GitHub no pudo guardar los archivos del juego.", 502);
   }
+  return githubResponse.json();
+}
+
+async function saveGameFiles(gameId, files) {
+  const encodedBranch = encodeURIComponent(githubBranch);
+  const parentSha = (await requestGitHubJson(`git/ref/heads/${encodedBranch}`)).object.sha;
+  const parentCommit = await requestGitHubJson(`git/commits/${parentSha}`);
+  const treeEntries = [];
+  for (const file of files) {
+    const blob = await requestGitHubJson("git/blobs", "POST", {
+      content: file.content.toString("base64"),
+      encoding: "base64",
+    });
+    treeEntries.push({
+      path: `public/games/${gameId}/${file.name}`,
+      mode: "100644",
+      type: "blob",
+      sha: blob.sha,
+    });
+  }
+  const tree = await requestGitHubJson("git/trees", "POST", {
+    base_tree: parentCommit.tree.sha,
+    tree: treeEntries,
+  });
+  const commit = await requestGitHubJson("git/commits", "POST", {
+    message: `Add game ${gameId} files`,
+    tree: tree.sha,
+    parents: [parentSha],
+  });
+  await requestGitHubJson(`git/refs/heads/${encodedBranch}`, "PATCH", { sha: commit.sha, force: false });
 }
 
 function inspectGameIndex(html) {
@@ -111,10 +145,10 @@ function inspectGameIndex(html) {
 
 async function uploadBasedGameArchive(request, response, user) {
   if (!moderators.has(user.email)) return send(response, 403, { error: "Solo un moderador verificado puede publicar juegos." });
-  if (concurrentUploads >= maxConcurrentUploads) return send(response, 503, { error: "Hay demasiadas subidas simultáneas. Inténtalo de nuevo." });
-  concurrentUploads += 1;
+  if (concurrentGameUploads >= maxConcurrentGameUploads) return send(response, 503, { error: "Hay demasiadas subidas de juegos simultáneas. Inténtalo de nuevo." });
+  concurrentGameUploads += 1;
   try {
-    const bytes = await readBody(request, maxGameArchiveBytes, "8 MB");
+    const bytes = await readBody(request, maxGameArchiveBytes, `${basedGameUploadLimits.archiveMb} MB`);
     if (bytes.length < 4 || bytes.readUInt32LE(0) !== 0x04034b50) return send(response, 415, { error: "El archivo debe ser un ZIP válido." });
     const zip = await openZipBuffer(bytes);
     const gameId = randomUUID();
@@ -133,8 +167,15 @@ async function uploadBasedGameArchive(request, response, user) {
             if (normalized.startsWith("/") || normalized.split("/").some((part) => !part || part === "." || part === "..") || normalized.length > 180 || seen.has(normalized)) {
               throw new MissionServiceError("El ZIP contiene rutas inválidas o repetidas.", 400);
             }
-            if (files.length >= 40 || entry.uncompressedSize > 2 * 1024 * 1024 || (totalExpanded += entry.uncompressedSize) > 20 * 1024 * 1024) {
-              throw new MissionServiceError("El ZIP admite hasta 40 archivos, 2 MB por archivo y 20 MB descomprimidos.", 413);
+            if (files.length >= basedGameUploadLimits.fileCount) {
+              throw new MissionServiceError(`El ZIP admite hasta ${basedGameUploadLimits.fileCount} archivos.`, 413);
+            }
+            if (entry.uncompressedSize > maxGameFileBytes) {
+              throw new MissionServiceError(`Cada archivo del ZIP puede ocupar hasta ${basedGameUploadLimits.fileMb} MB descomprimidos.`, 413);
+            }
+            totalExpanded += entry.uncompressedSize;
+            if (totalExpanded > maxGameExpandedBytes) {
+              throw new MissionServiceError(`El ZIP puede ocupar hasta ${basedGameUploadLimits.expandedMb} MB descomprimidos en total.`, 413);
             }
             const mode = (entry.externalFileAttributes >>> 16) & 0o170000;
             if (mode === 0o120000) throw new MissionServiceError("El ZIP no puede incluir enlaces simbólicos.", 400);
@@ -160,7 +201,7 @@ async function uploadBasedGameArchive(request, response, user) {
     if (!index) return send(response, 400, { error: "El ZIP debe contener index.html en la raíz, o una carpeta dist/ con el build listo para publicar." });
     const indexError = inspectGameIndex(index.content.toString("utf8"));
     if (indexError) return send(response, 400, { error: indexError });
-    for (const file of publishFiles) await saveGameFile(gameId, file.name, file.content);
+    await saveGameFiles(gameId, publishFiles);
     const now = Date.now();
     const recentUploads = (uploadsByUser.get(user.uid) || []).filter((timestamp) => now - timestamp < uploadWindowMs);
     recentUploads.push(now);
@@ -169,7 +210,7 @@ async function uploadBasedGameArchive(request, response, user) {
   } catch (error) {
     console.error("Based game archive upload failed:", error);
     return send(response, error.status || 502, { error: error.status ? error.message : "No se pudo procesar o publicar el ZIP." });
-  } finally { concurrentUploads -= 1; }
+  } finally { concurrentGameUploads -= 1; }
 }
 
 function setCors(request, response) {

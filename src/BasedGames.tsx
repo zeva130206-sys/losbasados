@@ -15,6 +15,7 @@ import {
   Video,
   X,
 } from "lucide-react";
+import { basedGameUploadLimits } from "../shared/based-game-upload-limits.js";
 
 type BasedGame = {
   id: string;
@@ -355,8 +356,8 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
       setGameArchive(null);
       return;
     }
-    if (file && file.size > 8 * 1024 * 1024) {
-      setError("El ZIP del juego no puede superar 8 MB comprimidos.");
+    if (file && file.size > basedGameUploadLimits.archiveMb * 1024 * 1024) {
+      setError(`El ZIP del juego no puede superar ${basedGameUploadLimits.archiveMb} MB comprimidos.`);
       setGameArchive(null);
       return;
     }
@@ -555,7 +556,7 @@ export default function BasedGames({ isMod, initialAdminOpen, onAdminOpenChange 
                     <label className="lb-based-field">Calificación<input type="number" min={0} max={5} step={0.1} required value={form.rating} onChange={(event) => updateForm("rating", event.target.value)} /></label>
                   </div>
                   <label className="lb-based-field">URL HTTPS del juego (opcional si subes un ZIP)<input type="url" value={form.gameUrl} onChange={(event) => { updateForm("gameUrl", event.target.value); if (event.target.value) setGameArchive(null); }} placeholder="https://tus-juegos.example/juego/index.html" /><small>Para juegos estáticos, también puedes subir el build listo en ZIP. En Vite configura base: './', ejecuta el build y comprime los archivos de dist para que index.html quede en la raíz.</small></label>
-                  <label className="lb-based-upload"><Gamepad2 size={18} /><strong>{gameArchive?.name || "Subir build del juego (ZIP)"}</strong><small>Archivos publicados listos · máximo 8 MB comprimido, 40 archivos y 20 MB descomprimido</small><input type="file" accept=".zip,application/zip" onChange={selectGameArchive} /></label>
+                  <label className="lb-based-upload"><Gamepad2 size={18} /><strong>{gameArchive?.name || "Subir build del juego (ZIP)"}</strong><small>Builds listos para navegador · máximo {basedGameUploadLimits.archiveMb} MB comprimido, {basedGameUploadLimits.fileCount} archivos, {basedGameUploadLimits.fileMb} MB por archivo y {basedGameUploadLimits.expandedMb} MB descomprimidos</small><input type="file" accept=".zip,application/zip" onChange={selectGameArchive} /></label>
                   <div className="lb-based-upload-grid">
                     <label className="lb-based-upload"><ImagePlus size={18} /><strong>{thumbnail?.name || (editing ? "Cambiar portada 16:10" : "Portada 16:10")}</strong><small>JPG, PNG o WebP · máximo 1 MB</small><input type="file" accept="image/jpeg,image/png,image/webp" onChange={selectThumbnail} /></label>
                     <label className="lb-based-upload"><Video size={18} /><strong>{preview?.name || (editing?.previewUrl ? "Cambiar video de preview" : "Video de preview opcional")}</strong><small>MP4/WebM · máximo 24 MB · 30 segundos</small><input type="file" accept="video/mp4,video/webm" onChange={selectPreview} /></label>

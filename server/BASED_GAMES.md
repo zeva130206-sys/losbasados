@@ -25,10 +25,12 @@ El ZIP debe contener el build estático listo, con `index.html` en la raíz (tam
 se acepta el build dentro de `dist/`). Para proyectos Vite, configura `base: "./"`
 y comprime el contenido de `dist`, no el código fuente ni la página de desarrollo.
 El servicio rechaza la entrada `/src/main.tsx` y las rutas locales absolutas que
-apuntan fuera de la carpeta del juego. Valida y publica hasta 40 archivos (8 MB
-comprimidos, 2 MB por archivo y 20 MB en total) en
-`public/games/<id>/`, conservando las rutas relativas. Solo moderadores verificados
-pueden subir juegos. También se puede registrar un enlace HTTPS externo. El
+apuntan fuera de la carpeta del juego. Valida y publica hasta 80 archivos por juego:
+50 MB comprimidos, 50 MB por archivo y 100 MB descomprimidos en total, en
+`public/games/<id>/`, conservando las rutas relativas. El build completo se publica
+en un solo commit de GitHub. Solo moderadores verificados pueden subir juegos. Los
+builds que superen esos límites pueden publicarse en un alojamiento externo y
+registrarse mediante su URL HTTPS; GitHub Pages limita a 1 GB el sitio publicado. El
 iframe permite scripts y pointer lock,
 pero no concede `allow-same-origin`, navegación superior, formularios ni
 ventanas emergentes. El juego queda aislado del origen de la web; los juegos
