@@ -1,0 +1,155 @@
+================================================================================
+LOS BASADOS: FURIA CALLEJERA — GUÍA TÉCNICA, CONTEXTO E HISTORIA OFICIAL
+Edición Arcade CPS / Final Fight 2 Architecture · Proyecto Oficial "Los Basados"
+Creador del Proyecto: VAZE
+Dominio de Despliegue: losbasados.dpdns.org (public/games/<id>/)
+Fecha de Actualización: Noviembre 2026
+================================================================================
+
+1. SINOPSIS NARRATIVA: "EL RESCATE DE LA BABY PC"
+--------------------------------------------------------------------------------
+En el corazón del búnker subterráneo de "Los Basados", VAZE (el Rebelde Urbano)
+y su escuadrón contemplan su mayor orgullo: "LA BABY". Una battlestation gamer
+customizada de ultra-gama alta, equipada con enfriamiento líquido carmesí,
+triple ventilación RGB de rotación continua, procesador de 16 núcleos a 5.8 GHz,
+GPU triple slot personalizada y los algoritmos supremos de la comunidad.
+
+A las 02:45 AM, las puertas de acero reforzado son voladas con C4. De la humareda
+roja emerge "El Friki Hacker" escoltado por los colosos del Clan Andore y matones
+del Sindicato Mad Gear. En cuestión de segundos, cortan los cables de red,
+desconectan los tubos de enfriamiento de "La Baby" y se la llevan en peso,
+escapando hacia los túneles subterráneos del metro de Hong Kong.
+
+VAZE se acomoda la visera de la gorra hacia atrás, ajusta sus guantes de combate,
+se abotona la gabardina roja con hombreras de tachas y jura ante su escuadrón:
+"¡Nadie... pero NADIE toca a mi Baby! ¡Vamos a recorrer cada callejón, estación y
+ring clandestino de Eurasia hasta recuperarla!"
+
+Así da inicio el viaje a través de 6 países:
+1. Hong Kong: Bulevar comercial, callejones de letreros neón y andenes de metro.
+2. Francia: Calles de París, alcantarillas históricas y clubes clandestinos.
+3. Holanda: Puentes de canales, molinos de viento y almacenes portuarios.
+4. Inglaterra: Fábricas industriales, estaciones de metro y niebla densa.
+5. Italia: Paseos marítimos de Venecia, catacumbas y coliseos urbanos.
+6. Japón: Rascacielos de Akihabara, metro de Shinjuku y el Dojo de Retu.
+
+
+2. ARQUITECTURA TÉCNICA Y COMPATIBILIDAD WEB
+--------------------------------------------------------------------------------
+El juego fue diseñado para ejecutarse de manera autónoma en cualquier navegador
+moderno dentro de un iframe o contenedor aislado en losbasados.dpdns.org:
+
+- DESPLIEGUE ZIP LIMPIO:
+  Todos los archivos y assets utilizan rutas relativas (./) para permitir que el
+  backend de Los Basados lo descomprima en public/games/<id>/ sin dependencias
+  externas ni rutas absolutas rotas.
+
+- RESOLUCIÓN DE PERMISSION POLICY (IFRAME SAFE):
+  En plataformas web y servidores con encabezados estrictos de Permission Policy,
+  las llamadas directas a `navigator.getGamepads()` sin captura de excepciones
+  pueden provocar un error DOMException ("Document's Permission Policy does not
+  allow calling getGamepads() from this context"), provocando pantalla negra y
+  deteniendo el requestAnimationFrame.
+  En este proyecto, gamepad.ts implementa un envoltorio try/catch blindado que
+  captura cualquier restricción del iframe y conmuta de inmediato a controles
+  táctiles y teclado sin interrupción ni cuelgues.
+
+- SOPORTE UNIVERSAL DE MANDOS (GAMEPAD API):
+  Soporta mapeo nativo y normalización automática de ejes/botones para:
+  * PlayStation 4 (DualShock 4) y PlayStation 5 (DualSense)
+  * Xbox One / Xbox Series X|S / Mandos Bluetooth Xbox
+  * Nintendo Switch Pro Controller y Joy-Cons emparejados
+  * Mandos Genéricos USB / DirectInput / XInput
+  * Smart TVs y Android TV (Navegadores basados en Chromium)
+
+- CONTROLES TÁCTILES VIRTUALES (MÓVILES Y TABLETS):
+  D-Pad omnidireccional ergonómico y botones de acción (P: Golpe/Recoger,
+  K: Patada, J: Salto, S: Especial Neo-Furia, T: Tag Relevo) con vibración háptica
+  (navigator.vibrate) y prevención de gestos multitouch nativos.
+
+- TECLADO REMAPEABLE EN TIEMPO REAL:
+  Configuración independiente y persistente (LocalStorage) para Jugador 1 y Jugador 2:
+  * P1 Predeterminado: W/A/S/D (Mover), J (Golpe), K (Salto), L (Patada), U (Especial), I (Tag).
+  * P2 Predeterminado: Flechas (Mover), Num1 (Golpe), Num2 (Salto), Num3 (Patada), Num4 (Especial).
+
+
+3. MODO 2 JUGADORES CO-OP Y SISTEMA DE REVIVIR (3 OPORTUNIDADES)
+--------------------------------------------------------------------------------
+El modo de dos jugadores simultáneos permite a ambos usuarios combatir codo a
+codo en la misma pantalla:
+
+- SISTEMA DE INCONSCIENCIA Y RESCATE:
+  Cuando la barra de salud (HP) de un jugador llega a 0 en modo 2P, no muere de
+  inmediato ni se produce un Game Over instantáneo. En su lugar, entra en estado
+  abatido / inconsciente (isDowned = true).
+- 3 OPORTUNIDADES DE RESURRECCIÓN:
+  Cada jugador cuenta con 3 vidas/oportunidades de revivir por fase.
+- RESCATE POR COMPAÑERO:
+  El compañero que sigue con vida debe acercarse físicamente al cuerpo abatido
+  (a menos de 48 píxeles de distancia) y pulsar la tecla/botón de GOLPE (Punch).
+- EFECTO AL REVIVIR:
+  Al pulsar el botón, se consume 1 oportunidad de reanimación, el jugador caído
+  se levanta instantáneamente con el 70% de su vida (HP), 2.5 segundos de
+  invencibilidad dorada contra todo daño, fuegos artificiales/chispas doradas,
+  texto flotante ¡REVIVIDO! y la voz del locutor proclamando "¡REVIVIDO!".
+- CONDICIÓN DE DERROTA:
+  Si un jugador agota sus 3 resurrecciones, ya no podrá volver a levantarse en
+  esa fase. Si ambos jugadores son abatidos simultáneamente, se dispara la
+  pantalla de Fin del Juego (Game Over). Al pulsar "CONTINUAR (REINTENTAR)",
+  el motor reanuda la partida exactamente en el stage y sub-área actual con
+  vidas y revives reseteados.
+
+
+4. CINEMÁTICA Y VIÑETAS DE CÓMIC ("LA BABY" PC)
+--------------------------------------------------------------------------------
+Al pulsar "EMPEZAR AVENTURA (1P)" o "MODO 2 JUGADORES (2P)", el juego abre de
+manera fluida el cómic interactivo con 4 viñetas animadas a 60 FPS en un lienzo
+pixel art dedicado:
+- Panel 1: Cuartel general con "La Baby" encendida, ventiladores RGB girando,
+  líquido refrigerante azul neón y monitor con el código de Los Basados.
+- Panel 2: El asalto de Mad Gear: puertas reventadas, alarmas estroboscópicas rojas,
+  chispas y el Hacker Friki con el coloso Andore cargando la torre.
+- Panel 3: La huida por los andenes subterráneos de Hong Kong, tren en marcha y
+  el rastro de refrigerante derramado en los rieles.
+- Panel 4: El juramento de VAZE: gabardina carmesí abierta, visera girada hacia
+  atrás, fuego y relámpagos de Neo-Furia brotando de sus puños.
+El jugador puede leer la narración y diálogos o presionar "SALTAR AL COMBATE"
+para entrar de lleno a la pelea con el grito "ROUND 1 · FIGHT!".
+
+
+5. DIRECCIÓN ARTÍSTICA Y COMBATE 32-BIT
+--------------------------------------------------------------------------------
+Basado en los sprites oficiales de VAZE (imagen_97f7fa30.png):
+- Animación Idle: Respiración fluida con gabardina ondeando y mitones listos.
+- Combo Callejero (3 Hits):
+  * Golpe 1: Jab frontal con estela de velocidad.
+  * Golpe 2: Directo de derecha con impacto de aire comprimido.
+  * Golpe 3: Remate final con tajo cortante curvo de energía carmesí luminosa.
+- Patada y Patada Aérea Giratoria:
+  * Patada alta a la cabeza.
+  * Salto + Patada: Doble patada giratoria aérea (Tatsumaki / estilo Tekken)
+    con anillo sónico de 360 grados que impacta a múltiples enemigos.
+- Superataque Neo-Furia (Cinemática Super Freeze):
+  * Al pulsar Especial (con barra llena), se activa un congelamiento dramático
+    de 0.75s con fondo oscurecido, líneas radiales de anime y banner diagonal
+    con el nombre del superataque ¡NEO-FURIA!.
+  * VAZE genera un orbe oscuro de energía carmesí con arcos de relámpago y
+    remata con un hachazo de patada con onda expansiva cortante.
+- Enemigos con Expresiones Faciales 32-Bit:
+  * Al recibir daño o tener menos del 35% de vida, los enemigos cambian a
+    expresiones de 'scared' (ojos desorbitados y gotas de sudor) o 'hurt'
+    (rostro amoratado con moretones).
+
+
+6. REPERTORIO DE FRASES BASADAS (AUDIO CALLOUTS Y GLOBO DE TEXTO)
+--------------------------------------------------------------------------------
+- Golpes y combos: "¡DOMADÍSIMO!", "¡POR LA BABY PC!", "¡NADIE TOCA MI HARDWARE!",
+  "¡TOMA TU RATIO!", "¡FACTORES!", "¡ES CINE!", "¡A LLORAR A LA LLORERÍA!".
+- Agarres y Clinch: "¡AGÁRRATE QUE VIENE CURVA!", "¡RODILLAZO BASADO!".
+- Lanzamientos: "¡A VOLAR POR EL AIRE!", "¡SUPLEX DE GIGACHAD!".
+- K.O.: "¡DESINSTALA EL JUEGO!", "¡DOMADO Y A DORMIR!", "¡RATIO + L + K.O.!",
+  "¡A LA CAMA SIN CENAR!".
+- Locutor de voz integrado: Callouts por Web Speech API sintetizados con
+  modulación arcade para "¡RECONTRA BASADO!", "¡GOLPE BASADO!", "¡OH YEAH!",
+  "¡NEO-FURIA!", "¡K.O.!" y "¡REVIVIDO!".
+================================================================================

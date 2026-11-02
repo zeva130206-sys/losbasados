@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 256 256" shape-rendering="crispEdges">
+  <defs><linearGradient id="case" x2="0" y2="1"><stop stop-color="#26364a"/><stop offset="1" stop-color="#0b111c"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <ellipse cx="128" cy="233" rx="87" ry="12" fill="#060912" opacity=".5"/>
+  <path d="M51 25h151v203H51Z" fill="url(#case)" stroke="#080d16" stroke-width="9"/>
+  <path d="M64 38h124v177H64Z" fill="#17263b" stroke="#d72b4c" stroke-width="5"/>
+  <path d="M75 50h76v151H75Z" fill="#101a29" stroke="#7890a8" stroke-width="3"/>
+  <path d="M84 61h58v130H84Z" fill="#0a1421"/>
+  <g fill="none" stroke-width="6" filter="url(#glow)"><circle cx="113" cy="84" r="20" stroke="#f13961"/><circle cx="113" cy="84" r="11" stroke="#51dfff"/><circle cx="113" cy="133" r="20" stroke="#9a5cff"/><circle cx="113" cy="133" r="11" stroke="#57e8d0"/><circle cx="113" cy="178" r="12" stroke="#ffc84c"/></g>
+  <path d="M157 57h20v139h-20Z" fill="#0a111d" stroke="#536b84" stroke-width="3"/><path d="M163 73h8v34h-8m0 17h8v37h-8" fill="none" stroke="#fb4164" stroke-width="4"/>
+  <path d="M163 57v-17h-8m22 8h-9" fill="none" stroke="#40d9f3" stroke-width="4"/>
+  <path d="M83 228h87v9H83Z" fill="#758397"/><path d="M112 237h31v8h-31Z" fill="#455365"/>
+  <path d="M90 211h74v13H90Z" fill="#dbc278" stroke="#614b21" stroke-width="2"/><text x="127" y="221" text-anchor="middle" font-family="monospace" font-weight="900" font-size="9" fill="#171923">LA BABY · LB-01</text>
+</svg>
