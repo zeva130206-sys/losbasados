@@ -6,7 +6,6 @@ import {
   useReducedMotion,
   useSpring,
   useTransform,
-  type MotionValue,
 } from "motion/react";
 import {
   ArrowLeft,
@@ -59,9 +58,11 @@ type Game = {
   ageRestricted?: boolean;
   onlineStatus?: string;
   gamepadStatus?: boolean;
-  versions?: unknown[];
+  versions?: { name?: string; downloadUrl?: string; server?: string; recommended?: boolean }[];
   installGuide?: string;
   downloadUrl?: string;
+  portRepositoryUrl?: string;
+  portDownloadUrl?: string;
 };
 type User = { id?: string; name: string; avatar?: string; isAdult?: boolean; isMod?: boolean };
 type FriendRecord = Record<string, Record<string, { name?: string; avatar?: string } | string | boolean>>;
@@ -110,11 +111,11 @@ const footerSocials = [
   { id: "tiktok", label: "TikTok", icon: "fa-tiktok" },
 ];
 const defaultFooterContent: FooterContent = {
-  credits: "LOS BASADOS 2026 — Hecho con pasión por la comunidad · <a href=\"/privacidad\">Privacidad</a> · <a href=\"/terminos\">Términos</a>",
-  tagline: "",
-  eyebrow: "",
-  title: "",
-  description: "",
+  credits: "Creado por VAZE · Colaboran ENFURT, ENDFURT y ESVA",
+  tagline: "Comunidad hecha para jugar.",
+  eyebrow: "LOS BASADOS · COMUNIDAD",
+  title: "La partida continúa aquí.",
+  description: "Sigue las novedades y encuentra a la comunidad también fuera del juego.",
 };
 
 function socialHref(value?: string) {
@@ -331,10 +332,7 @@ function HeroShowcase(props: {
         />
       </AnimatePresence>
       <div className="lb-hero-vignette" />
-      <motion.div
-        className="lb-hero-frame"
-        style={(reducedMotion || performanceMode) ? undefined : { rotateX, rotateY, willChange: 'transform' }}
-      >
+      <motion.div className="lb-hero-frame" style={reducedMotion ? undefined : { rotateX, rotateY }}>
         <div className="lb-hero-copy">
           <motion.div
             key={`copy-${game.id}`}
@@ -359,11 +357,8 @@ function HeroShowcase(props: {
           </motion.div>
         </div>
 
-        <motion.div
-        className="lb-hero-art"
-        style={(reducedMotion || performanceMode) ? undefined : { rotateX, rotateY, willChange: 'transform' }}
-      >
-          <motion.div className="lb-art-glow" animate={(reducedMotion || performanceMode) ? undefined : { opacity: [0.35, 0.62, 0.35], scale: [0.96, 1.05, 0.96] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }} />
+        <motion.div className="lb-hero-art" style={reducedMotion ? undefined : { rotateX, rotateY }}>
+          <motion.div className="lb-art-glow" animate={reducedMotion ? undefined : { opacity: [0.35, 0.62, 0.35], scale: [0.96, 1.05, 0.96] }} transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }} />
           {heroMediaType === "video" && heroMediaUrl ? (
             <>
               <img className={`lb-hero-video-poster${heroVideoReady ? " is-hidden" : ""}`} src={heroPoster} alt={`Imagen de ${game.title}`} loading="eager" decoding="async" />
@@ -414,8 +409,8 @@ function HeroShowcase(props: {
   );
 }
 
-function GameCard(props: { game: Game; user: User | null; favorite: boolean; onOpen: (game: Game, origin?: HTMLElement) => void; onFavorite: (game: Game) => void; compact?: boolean; style?: React.CSSProperties }) {
-  const { game, user, favorite, onOpen, onFavorite, compact, style } = props;
+function GameCard(props: { game: Game; user: User | null; favorite: boolean; onOpen: (game: Game, origin?: HTMLElement) => void; onFavorite: (game: Game) => void; compact?: boolean }) {
+  const { game, user, favorite, onOpen, onFavorite, compact } = props;
   const locked = Boolean(game.ageRestricted && (!user || !user.isAdult));
   const cats = gameCategories(game);
 
@@ -428,11 +423,11 @@ function GameCard(props: { game: Game; user: User | null; favorite: boolean; onO
       whileHover={{ y: -7, rotateX: -1.2, rotateY: 1.4 }}
       transition={{ type: "spring", stiffness: 270, damping: 24 }}
       className={`lb-game-card${compact ? " is-compact" : ""}${locked ? " is-locked" : ""}`}
-      style={{ ...style, transformStyle: "preserve-3d" }}
       onClick={(event) => locked ? invokeLegacy("btnAuth") : onOpen(game, event.currentTarget)}
       tabIndex={0}
       onKeyDown={(event) => { if (event.target !== event.currentTarget) return; if (event.key === "Enter") locked ? invokeLegacy("btnAuth") : onOpen(game, event.currentTarget); }}
       aria-label={locked ? `${game.title}, contenido +18` : `Ver detalles de ${game.title}`}
+      style={{ transformStyle: "preserve-3d" }}
     >
       <div className="lb-card-image">
         <img src={asset(game.catalogImage || game.image)} alt="" loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = asset(fallbackGame.catalogImage || fallbackGame.image); }} />
@@ -491,12 +486,7 @@ function HomePage(props: {
         </div>
         <div className="lb-collection-grid">
           {collection.map((item, i) => (
-            <motion.button
-              className={`lb-collection-card tone-${item.tone}`}
-              key={item.index}
-              style={{ '--stagger-index': i } as React.CSSProperties}
-              onClick={item.tone === "violet" ? onCommunity : onCatalog}
-            >
+            <motion.button className={`lb-collection-card tone-${item.tone}`} key={item.index} onClick={item.tone === "violet" ? onCommunity : onCatalog} whileHover={{ y: -6, scale: 1.012 }} transition={{ type: "spring", stiffness: 250, damping: 20 }}>
               <span className="lb-collection-index">{item.index} / EXPERIENCIA</span>
               <span className="lb-collection-icon">{item.icon}</span>
               <strong>{item.title}</strong><span>{item.detail}</span><ArrowUpRight className="lb-collection-arrow" size={18} />
@@ -511,7 +501,7 @@ function HomePage(props: {
           <div><span className="lb-overline"><Flame size={13} /> EN LA COMUNIDAD</span><h2>Los más buscados</h2><p>Los juegos que están despertando más interés.</p></div>
           <button className="lb-text-link" onClick={onCatalog}>Ver toda la biblioteca <ArrowRight size={16} /></button>
         </div>
-        {trending.length ? <div className="lb-trending-grid">{trending.map((game, i) => <GameCard key={game.id} game={game} user={user} favorite={favorites.includes(game.id)} onOpen={onOpenGame} onFavorite={onFavorite} compact style={{ '--stagger-index': i } as React.CSSProperties} />)}</div> : <div className="lb-empty-state"><Gamepad2 size={28} /><p>La biblioteca está preparando su próxima aventura.</p></div>}
+        {trending.length ? <div className="lb-trending-grid">{trending.map((game) => <GameCard key={game.id} game={game} user={user} favorite={favorites.includes(game.id)} onOpen={onOpenGame} onFavorite={onFavorite} compact />)}</div> : <div className="lb-empty-state"><Gamepad2 size={28} /><p>La biblioteca está preparando su próxima aventura.</p></div>}
       </section>
 
       <section className="lb-community-band lb-container" id="community">
@@ -528,7 +518,27 @@ function HomePage(props: {
       {news.length > 0 && <section className="lb-section lb-container lb-news-section"><div className="lb-section-heading"><div><span className="lb-overline">DIARIO DE PARTIDA</span><h2>Noticias & novedades</h2></div><span className="lb-news-count">{String(news.length).padStart(2, "0")} ACTUALIZACIONES</span></div><div className="lb-news-grid">{news.slice(0, 3).map((item, i) => <article key={item.id || item.title} className="lb-news-card"><span>0{i + 1} <i /> {item.date || "LOS BASADOS"}</span>{user?.isMod && item.id && <button className="lb-news-edit" type="button" onClick={() => window.editNews?.(item.id!)} aria-label={`Editar noticia ${item.title}`}><Pencil size={14} /> Editar</button>}<h3>{item.title}</h3><p>{item.content}</p></article>)}</div></section>}
 
       <footer className="lb-footer lb-home-footer lb-container">
-        <p dangerouslySetInnerHTML={{ __html: footer.credits }} />
+        <div className="lb-footer-brand-panel">
+          <a className="lb-brand" href="#/home" onClick={(event) => { event.preventDefault(); window.location.hash = "/home"; }}><span className="lb-brand-mark"><Gamepad2 size={25} /></span><span>LOS <b>BASADOS</b></span></a>
+          <strong className="lb-footer-copyright">© 2026 LOS BASADOS</strong>
+          <span className="lb-footer-credits">{footer.credits}</span>
+          <span className="lb-footer-tagline">{footer.tagline}</span>
+        </div>
+        <section className="lb-footer-community" aria-label="Redes sociales">
+          <div className="lb-footer-community-copy">
+            <span className="lb-footer-eyebrow">{footer.eyebrow}</span>
+            <h2>{footer.title}</h2>
+            <p>{footer.description}</p>
+          </div>
+          <div className="lb-footer-socials">
+            {footerSocials.map(({ id, label, icon }) => { const href = socialHref(socials[id]); return href ? (
+              <a key={id} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>
+                <i className={`fab ${icon}`} aria-hidden="true" />
+              </a>
+            ) : null; })}
+            {!footerSocials.some(({ id }) => socialHref(socials[id])) && <span className="lb-footer-social-empty">Pronto compartiremos nuestros canales.</span>}
+          </div>
+        </section>
       </footer>
     </motion.main>
   );
@@ -901,7 +911,7 @@ export default function ShowcaseApp({ communityChatHost, communityRequestsHost, 
     if (!games.length) return;
     let previous: Record<string, string> = {};
     try { previous = JSON.parse(localStorage.getItem("basados_game_signatures") || "{}"); } catch { previous = {}; }
-    const next = Object.fromEntries(games.map((game) => [game.id, JSON.stringify({ title: game.title, size: game.size, downloadUrl: game.downloadUrl, versions: (game.versions || []).map((version: any) => [version?.name, version?.downloadUrl]), installGuide: game.installGuide })]));
+    const next = Object.fromEntries(games.map((game) => [game.id, JSON.stringify({ title: game.title, size: game.size, downloadUrl: game.downloadUrl, versions: (game.versions || []).map((version) => [version.name, version.downloadUrl]), portRepositoryUrl: game.portRepositoryUrl, portDownloadUrl: game.portDownloadUrl, installGuide: game.installGuide })]));
     const changed = games.filter((game) => wishlistAlerts.includes(game.id) && previous[game.id] && previous[game.id] !== next[game.id]);
     try { localStorage.setItem("basados_game_signatures", JSON.stringify(next)); } catch { /* Change detection remains available for this session. */ }
     if (changed.length) setWishlistNotice(changed.length === 1 ? `Hay novedades para ${changed[0].title}, guardado en tu lista.` : `Hay novedades en ${changed.length} juegos de tu lista.`);

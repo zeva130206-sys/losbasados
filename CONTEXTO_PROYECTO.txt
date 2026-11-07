@@ -187,3 +187,17 @@ ACTUALIZACION 31 OCT 2026
 - Los avisos de bbox de la fuente Font Awesome son advertencias del archivo de
   fuente y no causan el iframe en blanco; el error que lo causa es el modulo
   ausente /src/main.tsx.
+
+ACTUALIZACION 6 NOV 2026 — ENDURECIMIENTO DE CONTENIDO
+- Los mensajes, comentarios, notificaciones, capturas, perfiles e indicadores de
+  usuarios se renderizan como texto/nodos DOM y no como HTML interpolado.
+- La subida de multimedia a mensajes privados esta deshabilitada en cliente y
+  API mientras el proyecto no tenga un almacenamiento privado con reglas de
+  acceso verificadas. Los videos antiguos publicados en GitHub Pages siguen
+  siendo publicos; deben identificarse y migrarse/eliminarse desde GitHub y
+  revisar los mensajes que los referencian.
+- Las reglas desplegadas de Firebase Realtime Database no estaban disponibles
+  en el workspace. La consulta de solo lectura al endpoint de reglas respondio
+  HTTP 403 sin credenciales administrativas; no se modificaron reglas de
+  produccion. No desplegar reglas nuevas sin exportar/revisar las actuales y
+  comprobar los flujos de cuenta, moderacion, comunidad y presencia.

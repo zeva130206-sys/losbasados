@@ -10,6 +10,8 @@ declare global {
   }
 }
 
+window.__LOS_BASADOS_MEDIA_API__ = import.meta.env.VITE_MEDIA_API_URL || "";
+
 function loadScript(src: string) {
   return new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
@@ -31,7 +33,6 @@ export default function App() {
 
     async function mountLegacyRuntime() {
       try {
-        window.__LOS_BASADOS_MEDIA_API__ = import.meta.env.VITE_MEDIA_API_URL || "";
         const response = await fetch(`${base}legacy.html`);
         if (!response.ok) throw new Error(`No se pudo cargar el motor de la web (${response.status})`);
         const markup = await response.text();

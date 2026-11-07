@@ -813,6 +813,10 @@ async function uploadVideoFile(file, folder) {
 }
 
 function uploadAndSendMedia(file, targetFirebaseRef, isDM = false, rating = null, scope = isDM ? 'private' : 'chat') {
+    if (isDM || scope === 'private') {
+        alert("Por seguridad, los archivos multimedia de mensajes privados están pausados mientras se habilita un almacenamiento privado con acceso restringido. Puedes enviar mensajes de texto.");
+        return;
+    }
     const upload = file.type.startsWith('video/') ? uploadVideoFile(file, scope) : uploadImageFile(file);
     upload
         .then(({ url, type }) => {
@@ -833,12 +837,74 @@ function uploadAndSendMedia(file, targetFirebaseRef, isDM = false, rating = null
 }
 
 function renderStoredMedia(mediaUrl, mediaType) {
-    if (!mediaUrl) return '';
-    const url = escapeGameHTML(mediaUrl);
+    if (typeof mediaUrl !== 'string' || !mediaUrl) return null;
+    const url = getSafeMediaUrl(mediaUrl, mediaType === 'video');
+    if (!url) return null;
+
     if (mediaType === 'video') {
-        return `<br><video class="chat-msg-video" controls playsinline preload="none"><source src="${url}"></video>`;
+        const video = document.createElement('video');
+        video.className = 'chat-msg-video';
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = 'none';
+        video.src = url;
+        return video;
     }
-    return `<br><img src="${url}" class="chat-msg-img" loading="lazy" decoding="async" alt="Multimedia compartida" onclick="openImageModal('${url}')" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMAGE}';">`;
+
+    const image = document.createElement('img');
+    image.src = url;
+    image.className = 'chat-msg-img';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.alt = 'Multimedia compartida';
+    image.addEventListener('click', () => window.openImageModal?.(url));
+    image.addEventListener('error', () => { image.src = PLACEHOLDER_IMAGE; }, { once: true });
+    return image;
+}
+
+function getSafeMediaUrl(value, isVideo = false) {
+    if (typeof value !== 'string' || value.length > 1_500_000) return '';
+    if (!isVideo && /^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=]+$/i.test(value)) return value;
+
+    try {
+        const url = new URL(value, window.location.href);
+        const safeProtocol = url.protocol === 'https:' || (url.origin === window.location.origin && url.protocol === 'http:');
+        return safeProtocol && !url.username && !url.password ? url.href : '';
+    } catch {
+        return '';
+    }
+}
+
+function appendMessageText(container, value) {
+    const text = typeof value === 'string' ? value : '';
+    const imageUrlPattern = /https?:\/\/[^\s<>"']+/ig;
+    let cursor = 0;
+    let match;
+    let imageAdded = false;
+
+    while ((match = imageUrlPattern.exec(text)) && !imageAdded) {
+        const candidate = match[0].replace(/[),.!?]+$/, '');
+        const imageLike = /\.(?:png|jpe?g|gif|webp)(?:[?#].*)?$/i.test(candidate) ||
+            /^https:\/\/(?:cdn\.discordapp\.com\/attachments\/|media\.giphy\.com\/)/i.test(candidate);
+        const safeUrl = imageLike ? getSafeMediaUrl(candidate) : '';
+        if (!safeUrl) continue;
+
+        container.append(document.createTextNode(text.slice(cursor, match.index)));
+        const lineBreak = document.createElement('br');
+        container.append(lineBreak);
+        const image = renderStoredMedia(safeUrl, 'image');
+        if (image) container.append(image);
+        cursor = match.index + candidate.length;
+        imageAdded = true;
+    }
+
+    container.append(document.createTextNode(text.slice(cursor)));
+}
+
+function appendStoredMedia(container, mediaUrl, mediaType) {
+    const media = renderStoredMedia(mediaUrl, mediaType);
+    if (!media) return;
+    container.append(document.createElement('br'), media);
 }
 
 // FIREBASE EN TIEMPO REAL
@@ -966,24 +1032,28 @@ function initRealtimeFirebase() {
             Object.values(data).forEach(msg => {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-msg';
+                const author = typeof msg.author === 'string' ? msg.author : 'Invitado Basado';
+                const avatarUrl = getSafeMediaUrl(msg.avatar) || 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest';
+                const avatar = document.createElement('img');
+                avatar.src = avatarUrl;
+                avatar.alt = author;
+                avatar.loading = 'lazy';
+                avatar.decoding = 'async';
+                avatar.addEventListener('click', () => window.openPublicProfile?.(author, avatarUrl));
+                avatar.addEventListener('error', () => { avatar.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest'; }, { once: true });
 
-                const mediaPattern = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp)(?:\?.*)?|https?:\/\/cdn\.discordapp\.com\/attachments\/[^\s]+|https?:\/\/media\.giphy\.com\/[^\s]+|data:image\/[a-zA-Z]+;base64,[^\s]+)/i;
-                let formattedText = msg.text || '';
-
-                if (mediaPattern.test(formattedText)) {
-                    formattedText = formattedText.replace(mediaPattern, (url) => {
-                        return `<br><img src="${url}" class="chat-msg-img" loading="lazy" decoding="async" onclick="openImageModal('${url}')" title="Ampliar media" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMAGE}';">`;
-                    });
-                }
-                formattedText += renderStoredMedia(msg.mediaUrl, msg.mediaType);
-
-                msgDiv.innerHTML = `
-                    <img src="${msg.avatar}" alt="${msg.author}" loading="lazy" decoding="async" onclick="openPublicProfile('${msg.author}', '${msg.avatar}')" onerror="this.onerror=null;this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Guest';">
-                    <div class="chat-msg-content">
-                        <span class="chat-author" onclick="openPublicProfile('${msg.author}', '${msg.avatar}')">${msg.author}</span>
-                        <p class="chat-text">${formattedText}</p>
-                    </div>
-                `;
+                const content = document.createElement('div');
+                content.className = 'chat-msg-content';
+                const authorLabel = document.createElement('span');
+                authorLabel.className = 'chat-author';
+                authorLabel.textContent = author;
+                authorLabel.addEventListener('click', () => window.openPublicProfile?.(author, avatarUrl));
+                const messageText = document.createElement('p');
+                messageText.className = 'chat-text';
+                appendMessageText(messageText, msg.text);
+                appendStoredMedia(messageText, msg.mediaUrl, msg.mediaType);
+                content.append(authorLabel, messageText);
+                msgDiv.append(avatar, content);
                 chatMessages.appendChild(msgDiv);
             });
             setTimeout(() => { chatMessages.scrollTop = chatMessages.scrollHeight; }, 50);
@@ -1061,16 +1131,31 @@ function renderNotificationsFeed() {
         return;
     }
 
-    container.innerHTML = loadedUserNotifications.map(n => `
-        <div class="notif-item-card" onclick="handleNotificationClick('${n.type}', '${n.senderName}')">
-            <i class="fas ${n.type === 'dm' ? 'fa-comment-alt' : 'fa-gamepad'}"></i>
-            <div>
-                <strong style="color:#fff; font-size:0.85rem;">${n.title}</strong>
-                <p style="color:#aaa; font-size:0.8rem; margin:2px 0;">${n.text}</p>
-                <small style="color:var(--neon-red); font-size:0.7rem;">${n.time}</small>
-            </div>
-        </div>
-    `).join('');
+    container.replaceChildren();
+    loadedUserNotifications.forEach(notification => {
+        const card = document.createElement('div');
+        card.className = 'notif-item-card';
+        card.addEventListener('click', () => window.handleNotificationClick(notification.type, notification.senderName));
+        const icon = document.createElement('i');
+        icon.className = `fas ${notification.type === 'dm' ? 'fa-comment-alt' : 'fa-gamepad'}`;
+        const content = document.createElement('div');
+        const title = document.createElement('strong');
+        title.style.color = '#fff';
+        title.style.fontSize = '0.85rem';
+        title.textContent = notification.title;
+        const text = document.createElement('p');
+        text.style.color = '#aaa';
+        text.style.fontSize = '0.8rem';
+        text.style.margin = '2px 0';
+        text.textContent = notification.text;
+        const time = document.createElement('small');
+        time.style.color = 'var(--neon-red)';
+        time.style.fontSize = '0.7rem';
+        time.textContent = notification.time;
+        content.append(title, text, time);
+        card.append(icon, content);
+        container.appendChild(card);
+    });
 }
 
 window.handleNotificationClick = function(type, senderName) {
@@ -1157,7 +1242,7 @@ document.getElementById('formAdminFooter').addEventListener('submit', (e) => {
 window.openPublicProfile = function(name, avatar) {
     activeProfileViewName = name;
     document.getElementById('publicName').textContent = name;
-    document.getElementById('publicAvatarImg').src = avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest';
+    document.getElementById('publicAvatarImg').src = getSafeMediaUrl(avatar) || 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest';
 
     const postBox = document.getElementById('postScreenshotBox');
     const btnEdit = document.getElementById('btnEditProfileSettings');
@@ -1232,14 +1317,30 @@ function renderUserScreenshots(username) {
         return;
     }
 
-    feed.innerHTML = userShots.reverse().map(s => `
-        <div class="shot-card-item">
-            <div class="shot-card-info">
-                <strong>${s.title}</strong>
-            </div>
-            ${s.imageUrl ? `<img src="${s.imageUrl}" loading="lazy" decoding="async" onclick="openImageModal('${s.imageUrl}')" title="Ampliar captura">` : ''}
-        </div>
-    `).join('');
+    feed.replaceChildren();
+    [...userShots].reverse().forEach(shot => {
+        const card = document.createElement('div');
+        card.className = 'shot-card-item';
+        const info = document.createElement('div');
+        info.className = 'shot-card-info';
+        const title = document.createElement('strong');
+        title.textContent = typeof shot.title === 'string' ? shot.title : '';
+        info.appendChild(title);
+        card.appendChild(info);
+
+        const imageUrl = getSafeMediaUrl(shot.imageUrl);
+        if (imageUrl) {
+            const image = document.createElement('img');
+            image.src = imageUrl;
+            image.loading = 'lazy';
+            image.decoding = 'async';
+            image.alt = title.textContent || 'Captura compartida';
+            image.title = 'Ampliar captura';
+            image.addEventListener('click', () => window.openImageModal?.(imageUrl));
+            card.appendChild(image);
+        }
+        feed.appendChild(card);
+    });
 }
 
 // RENDERIZADO DE AMIGOS CORREGIDO Y CONECTADO A BASE DE DATOS
@@ -1339,23 +1440,23 @@ window.openPrivateChatWith = function(targetName) {
                 const msgDiv = document.createElement('div');
                 msgDiv.className = 'chat-msg';
                 msgDiv.style.justifyContent = isMine ? 'flex-end' : 'flex-start';
-
-                const mediaPattern = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp)(?:\?.*)?|https?:\/\/cdn\.discordapp\.com\/attachments\/[^\s]+|https?:\/\/media\.giphy\.com\/[^\s]+|data:image\/[a-zA-Z]+;base64,[^\s]+)/i;
-                let formattedText = msg.text || '';
-
-                if (mediaPattern.test(formattedText)) {
-                    formattedText = formattedText.replace(mediaPattern, (url) => {
-                        return `<br><img src="${url}" class="chat-msg-img" loading="lazy" decoding="async" onclick="openImageModal('${url}')" title="Ampliar media" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMAGE}';">`;
-                    });
+                const sender = typeof msg.sender === 'string' ? msg.sender : 'Usuario';
+                const content = document.createElement('div');
+                content.className = 'chat-msg-content';
+                if (isMine) {
+                    content.style.background = '#800020';
+                    content.style.borderColor = 'var(--neon-red)';
                 }
-                formattedText += renderStoredMedia(msg.mediaUrl, msg.mediaType);
-
-                msgDiv.innerHTML = `
-                    <div class="chat-msg-content" style="${isMine ? 'background:#800020; border-color:var(--neon-red);' : ''}">
-                        <span class="chat-author" style="color:${isMine ? '#ff4444' : '#00ff80'};">${msg.sender}</span>
-                        <p class="chat-text">${formattedText}</p>
-                    </div>
-                `;
+                const author = document.createElement('span');
+                author.className = 'chat-author';
+                author.style.color = isMine ? '#ff4444' : '#00ff80';
+                author.textContent = sender;
+                const messageText = document.createElement('p');
+                messageText.className = 'chat-text';
+                appendMessageText(messageText, msg.text);
+                appendStoredMedia(messageText, msg.mediaUrl, msg.mediaType);
+                content.append(author, messageText);
+                msgDiv.append(content);
                 container.appendChild(msgDiv);
             });
             setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
@@ -1480,15 +1581,29 @@ function renderAdminReports() {
         return;
     }
 
-    container.innerHTML = loadedReports.map(r => `
-        <div class="admin-list-item">
-            <div>
-                <strong style="color:var(--neon-red);">${r.gameTitle}</strong>
-                <small style="color:#aaa; display:block;">Reportado por: ${r.reportedBy}</small>
-            </div>
-            <button class="btn-secondary btn-sm" onclick="openAdminEditModal(event, '${r.gameId}')">🔧 Resolver / Editar</button>
-        </div>
-    `).join('');
+    container.replaceChildren();
+    loadedReports.forEach(report => {
+        const item = document.createElement('div');
+        item.className = 'admin-list-item';
+        const details = document.createElement('div');
+        const title = document.createElement('strong');
+        title.style.color = 'var(--neon-red)';
+        title.textContent = typeof report.gameTitle === 'string' ? report.gameTitle : 'Juego reportado';
+        const author = document.createElement('small');
+        author.style.color = '#aaa';
+        author.style.display = 'block';
+        author.textContent = `Reportado por: ${typeof report.reportedBy === 'string' ? report.reportedBy : 'Usuario'}`;
+        details.append(title, author);
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'btn-secondary btn-sm';
+        edit.textContent = 'Resolver / Editar';
+        edit.addEventListener('click', event => {
+            if (typeof report.gameId === 'string') window.openAdminEditModal?.(event, report.gameId);
+        });
+        item.append(details, edit);
+        container.appendChild(item);
+    });
 }
 
 // PESTAÑAS DEL MODAL FORO / COMUNIDAD
@@ -1607,6 +1722,8 @@ window.trackDownload = function(gameId) {
 
 // LIGHTBOX
 window.openImageModal = function(url) {
+    const safeUrl = getSafeMediaUrl(url);
+    if (!safeUrl) return;
     let lightbox = document.getElementById('imageLightbox');
     if (!lightbox) {
         lightbox = document.createElement('div');
@@ -1621,7 +1738,7 @@ window.openImageModal = function(url) {
         document.body.appendChild(lightbox);
         lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeImageModal(); });
     }
-    document.getElementById('lightboxImg').src = url;
+    document.getElementById('lightboxImg').src = safeUrl;
     lightbox.classList.add('active');
 };
 
@@ -1644,9 +1761,25 @@ function renderOnlineUsersSidebar() {
     usersList.innerHTML = '';
     currentOnlineList.forEach(u => {
         const li = document.createElement('li');
-        const devTag = u.device ? `<small style="font-size:0.7rem; color:#888;">[${u.device}]</small>` : '';
-        li.innerHTML = `<img src="${u.avatar}" alt="${u.name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Guest';"> <span>${u.name} ${devTag}</span>`;
-        li.onclick = () => openPublicProfile(u.name, u.avatar);
+        const name = typeof u.name === 'string' ? u.name : 'Usuario';
+        const avatarUrl = getSafeMediaUrl(u.avatar) || 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest';
+        const image = document.createElement('img');
+        image.src = avatarUrl;
+        image.alt = name;
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => { image.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest'; }, { once: true });
+        const label = document.createElement('span');
+        label.append(document.createTextNode(name));
+        if (typeof u.device === 'string' && u.device) {
+            const device = document.createElement('small');
+            device.style.fontSize = '0.7rem';
+            device.style.color = '#888';
+            device.textContent = ` [${u.device}]`;
+            label.appendChild(device);
+        }
+        li.append(image, label);
+        li.addEventListener('click', () => window.openPublicProfile?.(name, avatarUrl));
         usersList.appendChild(li);
     });
 }
@@ -1673,31 +1806,91 @@ function renderHeroCarousel(games) {
         return;
     }
 
-    container.innerHTML = featuredGames.map((game, i) => `
-        <div class="carousel-slide ${i === 0 ? 'active' : ''}" role="group" aria-roledescription="diapositiva" aria-label="Destacado ${i + 1} de ${featuredGames.length}: ${game.title}" aria-hidden="${i === 0 ? 'false' : 'true'}" style="background-image: url('${game.heroMediaType === 'image' && game.heroMediaUrl ? game.heroMediaUrl : (game.heroPoster || game.catalogImage || game.image)}');">
-            <div class="hero-content">
-                <span class="badge">DESTACADO DE LA SEMANA</span>
-                <h2>${game.title.toUpperCase()} ${game.ageRestricted ? '<span class="badge-18-tag">+18</span>' : ''}</h2>
-                <p>${game.desc}</p>
-                <div class="hero-meta">
-                    <span><i class="fas fa-gamepad"></i> ${(Array.isArray(game.category) ? game.category.slice(0, 2) : [game.category]).join(' · ')}</span>
-                    <span><i class="fas fa-hard-drive"></i> ${game.size || 'Tamaño disponible en la ficha'}</span>
-                    <span><i class="fas fa-fire"></i> ${Number(game.downloadsCount) ? `${Number(game.downloadsCount).toLocaleString('es-PE')} descargas` : 'Disponible ahora'}</span>
-                </div>
-                <button class="btn-primary" onclick="openGameModal('${game.id}')">
-                    <i class="fas fa-download"></i> VER VERSIONES Y DESCARGAR
-                </button>
-            </div>
-        </div>
-    `).join('') + (featuredGames.length > 1 ? `
-        <div class="hero-carousel-controls" aria-label="Controles de juegos destacados">
-            <button type="button" class="hero-arrow" data-hero-step="-1" aria-label="Juego destacado anterior"><i class="fas fa-arrow-left"></i></button>
-            <div class="hero-dots" role="group" aria-label="Seleccionar juego destacado">
-                ${featuredGames.map((game, i) => `<button type="button" class="hero-dot ${i === 0 ? 'active' : ''}" data-hero-index="${i}" aria-label="Ver ${game.title}" aria-pressed="${i === 0}"></button>`).join('')}
-            </div>
-            <button type="button" class="hero-arrow" data-hero-step="1" aria-label="Siguiente juego destacado"><i class="fas fa-arrow-right"></i></button>
-        </div>
-    ` : '');
+    container.replaceChildren();
+    featuredGames.forEach((game, index) => {
+        const title = typeof game.title === 'string' ? game.title : 'Juego';
+        const slide = document.createElement('div');
+        slide.className = `carousel-slide ${index === 0 ? 'active' : ''}`;
+        slide.setAttribute('role', 'group');
+        slide.setAttribute('aria-roledescription', 'diapositiva');
+        slide.setAttribute('aria-label', `Destacado ${index + 1} de ${featuredGames.length}: ${title}`);
+        slide.setAttribute('aria-hidden', index === 0 ? 'false' : 'true');
+        const media = game.heroMediaType === 'image' && game.heroMediaUrl
+            ? game.heroMediaUrl
+            : game.heroPoster || game.catalogImage || game.image;
+        const safeMedia = getSafeMediaUrl(media);
+        if (safeMedia) slide.style.backgroundImage = `url(${JSON.stringify(safeMedia)})`;
+
+        const content = document.createElement('div');
+        content.className = 'hero-content';
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = 'DESTACADO DE LA SEMANA';
+        const heading = document.createElement('h2');
+        heading.textContent = title.toUpperCase();
+        if (game.ageRestricted) {
+            const ageBadge = document.createElement('span');
+            ageBadge.className = 'badge-18-tag';
+            ageBadge.textContent = '+18';
+            heading.append(' ', ageBadge);
+        }
+        const description = document.createElement('p');
+        description.textContent = typeof game.desc === 'string' ? game.desc : '';
+        const meta = document.createElement('div');
+        meta.className = 'hero-meta';
+        const genre = document.createElement('span');
+        genre.innerHTML = '<i class="fas fa-gamepad"></i> ';
+        genre.append(document.createTextNode(formatGameGenres(game.category)));
+        const size = document.createElement('span');
+        size.innerHTML = '<i class="fas fa-hard-drive"></i> ';
+        size.append(document.createTextNode(typeof game.size === 'string' ? game.size : 'Tamaño disponible en la ficha'));
+        const downloads = document.createElement('span');
+        downloads.innerHTML = '<i class="fas fa-fire"></i> ';
+        downloads.append(document.createTextNode(Number(game.downloadsCount)
+            ? `${Number(game.downloadsCount).toLocaleString('es-PE')} descargas`
+            : 'Disponible ahora'));
+        meta.append(genre, size, downloads);
+        const openButton = document.createElement('button');
+        openButton.type = 'button';
+        openButton.className = 'btn-primary';
+        openButton.innerHTML = '<i class="fas fa-download"></i> VER VERSIONES Y DESCARGAR';
+        openButton.addEventListener('click', () => openGameModal(game.id));
+        content.append(badge, heading, description, meta, openButton);
+        slide.appendChild(content);
+        container.appendChild(slide);
+    });
+    if (featuredGames.length > 1) {
+        const controls = document.createElement('div');
+        controls.className = 'hero-carousel-controls';
+        controls.setAttribute('aria-label', 'Controles de juegos destacados');
+        const previous = document.createElement('button');
+        previous.type = 'button';
+        previous.className = 'hero-arrow';
+        previous.dataset.heroStep = '-1';
+        previous.setAttribute('aria-label', 'Juego destacado anterior');
+        previous.innerHTML = '<i class="fas fa-arrow-left"></i>';
+        const dots = document.createElement('div');
+        dots.className = 'hero-dots';
+        dots.setAttribute('role', 'group');
+        dots.setAttribute('aria-label', 'Seleccionar juego destacado');
+        featuredGames.forEach((game, index) => {
+            const dot = document.createElement('button');
+            dot.type = 'button';
+            dot.className = `hero-dot ${index === 0 ? 'active' : ''}`;
+            dot.dataset.heroIndex = String(index);
+            dot.setAttribute('aria-label', `Ver ${typeof game.title === 'string' ? game.title : 'Juego'}`);
+            dot.setAttribute('aria-pressed', index === 0 ? 'true' : 'false');
+            dots.appendChild(dot);
+        });
+        const next = document.createElement('button');
+        next.type = 'button';
+        next.className = 'hero-arrow';
+        next.dataset.heroStep = '1';
+        next.setAttribute('aria-label', 'Siguiente juego destacado');
+        next.innerHTML = '<i class="fas fa-arrow-right"></i>';
+        controls.append(previous, dots, next);
+        container.appendChild(controls);
+    }
 
     clearInterval(carouselTimer);
     carouselIndex = 0;
@@ -1806,9 +1999,9 @@ function setupFilterToggle() {
 function populateFilterDropdowns() {
     const filterGenreExtra = document.getElementById('filterGenreExtra');
     if (!filterGenreExtra) return;
-    filterGenreExtra.innerHTML = '<option value="all">Todos los géneros</option>';
+    filterGenreExtra.replaceChildren(new Option('Todos los géneros', 'all'));
     loadedGenres.forEach(g => {
-        filterGenreExtra.innerHTML += `<option value="${g.name}">${g.name}</option>`;
+        if (typeof g.name === 'string') filterGenreExtra.add(new Option(g.name, g.name));
     });
 }
 
@@ -1859,14 +2052,30 @@ function renderNews() {
     const newsContainer = document.getElementById('newsContainer');
     const isMod = currentUser && (currentUser.isMod || MODERATOR_EMAILS.includes(currentUser.email));
 
-    newsContainer.innerHTML = loadedNews.map(n => `
-        <article class="news-card">
-            <span class="news-date">${n.date}</span>
-            <h4>${n.title}</h4>
-            <p>${n.content}</p>
-            ${isMod ? `<button onclick="editNews('${n.id}')" style="position:absolute; top:0; right:0; background:none; border:none; color:#ffa500; cursor:pointer;"><i class="fas fa-edit"></i></button>` : ''}
-        </article>
-    `).join('');
+    newsContainer.replaceChildren();
+    loadedNews.forEach(news => {
+        const article = document.createElement('article');
+        article.className = 'news-card';
+        const date = document.createElement('span');
+        date.className = 'news-date';
+        date.textContent = typeof news.date === 'string' ? news.date : '';
+        const title = document.createElement('h4');
+        title.textContent = typeof news.title === 'string' ? news.title : '';
+        const content = document.createElement('p');
+        content.textContent = typeof news.content === 'string' ? news.content : '';
+        article.append(date, title, content);
+        if (isMod) {
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.title = 'Editar noticia';
+            edit.setAttribute('aria-label', 'Editar noticia');
+            edit.style.cssText = 'position:absolute;top:0;right:0;background:none;border:none;color:#ffa500;cursor:pointer;';
+            edit.innerHTML = '<i class="fas fa-edit"></i>';
+            edit.addEventListener('click', () => window.editNews(news.id));
+            article.appendChild(edit);
+        }
+        newsContainer.appendChild(article);
+    });
 }
 
 // CATÁLOGO DE JUEGOS
@@ -1882,47 +2091,104 @@ function renderGames(data) {
     const userIsAdult = currentUser && currentUser.isAdult;
 
     data.forEach(game => {
-        const isFav = favorites.includes(game.id);
+        const gameId = typeof game.id === 'string' ? game.id : '';
+        const title = typeof game.title === 'string' ? game.title : 'Juego';
+        const isFav = favorites.includes(gameId);
         const isBlocked = game.ageRestricted && !userIsAdult;
 
         const card = document.createElement('div');
         card.className = `game-card ${isBlocked ? 'restricted-blur' : ''}`;
-        
-        let overlayHTML = isBlocked ? `
-            <div class="age-lock-overlay">
-                <i class="fas fa-user-lock"></i>
-                <span class="badge-18">+18 AÑOS</span>
-                <p>${currentUser ? 'Para mayores de edad.' : 'Inicia sesión para ver.'}</p>
-            </div>
-        ` : '';
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'card-img-wrap';
+        const image = document.createElement('img');
+        image.src = getSafeMediaUrl(game.catalogImage || game.image) || PLACEHOLDER_IMAGE;
+        image.alt = title;
+        image.loading = 'lazy';
+        image.decoding = 'async';
+        image.addEventListener('error', () => { image.src = PLACEHOLDER_IMAGE; }, { once: true });
+        imageWrap.appendChild(image);
 
-        const versionCount = (game.versions && game.versions.length) ? game.versions.length : 1;
-        const genresFormatted = formatGameGenres(game.category);
-        const downloads = game.downloadsCount || 0;
+        const badges = document.createElement('div');
+        badges.className = 'card-badges-row';
+        if (game.onlineStatus === 'online') {
+            const online = document.createElement('span');
+            online.className = 'status-pill online';
+            online.innerHTML = '<i class="fas fa-wifi"></i> Online';
+            badges.appendChild(online);
+        }
+        if (game.gamepadStatus) {
+            const gamepad = document.createElement('span');
+            gamepad.className = 'status-pill gamepad';
+            gamepad.innerHTML = '<i class="fas fa-gamepad"></i> Mando';
+            badges.appendChild(gamepad);
+        }
+        imageWrap.appendChild(badges);
 
-        card.innerHTML = `
-            <div class="card-img-wrap">
-                <img src="${game.catalogImage || game.image}" alt="${game.title}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMAGE}';">
-                
-                <div class="card-badges-row">
-                    ${game.onlineStatus === 'online' ? '<span class="status-pill online"><i class="fas fa-wifi"></i> Online</span>' : ''}
-                    ${game.gamepadStatus ? '<span class="status-pill gamepad"><i class="fas fa-gamepad"></i> Mando</span>' : ''}
-                </div>
+        if (isBlocked) {
+            const overlay = document.createElement('div');
+            overlay.className = 'age-lock-overlay';
+            overlay.innerHTML = `<i class="fas fa-user-lock"></i><span class="badge-18">+18 AÑOS</span><p>${currentUser ? 'Para mayores de edad.' : 'Inicia sesión para ver.'}</p>`;
+            imageWrap.appendChild(overlay);
+        }
+        if (isMod) {
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.className = 'edit-card-btn';
+            edit.title = 'Editar juego';
+            edit.innerHTML = '<i class="fas fa-edit"></i>';
+            edit.addEventListener('click', event => openAdminEditModal(event, gameId));
+            imageWrap.appendChild(edit);
+        }
+        if (!isBlocked) {
+            const favorite = document.createElement('button');
+            favorite.type = 'button';
+            favorite.className = `fav-btn ${isFav ? 'active' : ''}`;
+            favorite.setAttribute('aria-label', isFav ? 'Quitar de favoritos' : 'Añadir a favoritos');
+            favorite.innerHTML = '<i class="fas fa-heart"></i>';
+            favorite.addEventListener('click', event => toggleFav(event, gameId));
+            imageWrap.appendChild(favorite);
+        }
 
-                ${overlayHTML}
-                ${isMod ? `<button class="edit-card-btn" onclick="openAdminEditModal(event, '${game.id}')" title="Editar Juego"><i class="fas fa-edit"></i></button>` : ''}
-                ${!isBlocked ? `<button class="fav-btn ${isFav ? 'active' : ''}" onclick="toggleFav(event, '${game.id}')"><i class="fas fa-heart"></i></button>` : ''}
-            </div>
-            <div class="card-info" ${!isBlocked ? `onclick="openGameModal('${game.id}')"` : ''}>
-                <span class="card-cat">${genresFormatted} ${game.ageRestricted ? '<span class="badge-18-tag">+18</span>' : ''}</span>
-                <h4>${game.title}</h4>
-                <div class="card-meta">
-                    <span><i class="fas fa-hdd"></i> ${game.size}</span>
-                    <span><i class="fas fa-code-branch"></i> ${versionCount} Ver.</span>
-                </div>
-                <div class="downloads-counter"><i class="fas fa-fire"></i> ${downloads} descargas</div>
-            </div>
-        `;
+        const info = document.createElement('div');
+        info.className = 'card-info';
+        if (!isBlocked) {
+            info.tabIndex = 0;
+            info.setAttribute('role', 'button');
+            info.addEventListener('click', () => openGameModal(gameId));
+            info.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openGameModal(gameId);
+                }
+            });
+        }
+        const category = document.createElement('span');
+        category.className = 'card-cat';
+        category.append(document.createTextNode(formatGameGenres(game.category)));
+        if (game.ageRestricted) {
+            const badge = document.createElement('span');
+            badge.className = 'badge-18-tag';
+            badge.textContent = '+18';
+            category.append(' ', badge);
+        }
+        const heading = document.createElement('h4');
+        heading.textContent = title;
+        const meta = document.createElement('div');
+        meta.className = 'card-meta';
+        const size = document.createElement('span');
+        size.innerHTML = '<i class="fas fa-hdd"></i> ';
+        size.append(document.createTextNode(typeof game.size === 'string' ? game.size : ''));
+        const versionCount = Array.isArray(game.versions) && game.versions.length ? game.versions.length : 1;
+        const versions = document.createElement('span');
+        versions.innerHTML = '<i class="fas fa-code-branch"></i> ';
+        versions.append(document.createTextNode(`${versionCount} Ver.`));
+        meta.append(size, versions);
+        const downloads = document.createElement('div');
+        downloads.className = 'downloads-counter';
+        downloads.innerHTML = '<i class="fas fa-fire"></i> ';
+        downloads.append(document.createTextNode(`${Number(game.downloadsCount) || 0} descargas`));
+        info.append(category, heading, meta, downloads);
+        card.append(imageWrap, info);
 
         if (isBlocked) {
             card.addEventListener('click', (e) => {
@@ -1956,6 +2222,37 @@ function escapeGameHTML(value) {
     return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
+function getSafeExternalUrl(value) {
+    if (typeof value !== 'string' || !value.trim()) return '';
+    try {
+        const url = new URL(value.trim());
+        return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
+    } catch {
+        return '';
+    }
+}
+
+function getSafeEmbedUrl(embed) {
+    if (typeof embed !== 'string' || !embed.trim()) return '';
+    const parsed = new DOMParser().parseFromString(embed, 'text/html');
+    const candidate = parsed.querySelector('iframe[src]')?.getAttribute('src') || embed.trim();
+    const safeUrl = getSafeExternalUrl(candidate || '');
+    if (!safeUrl) return '';
+
+    const url = new URL(safeUrl);
+    const allowedHosts = new Set([
+        'youtube.com',
+        'www.youtube.com',
+        'www.youtube-nocookie.com',
+        'player.vimeo.com',
+        'player.twitch.tv'
+    ]);
+    if (!allowedHosts.has(url.hostname)) return '';
+    if ((url.hostname.includes('youtube')) && !url.pathname.startsWith('/embed/')) return '';
+    if (url.hostname === 'player.vimeo.com' && !url.pathname.startsWith('/video/')) return '';
+    return safeUrl;
+}
+
 function openGameModal(id, origin) {
     const game = loadedGames.find(g => g.id === id);
     if (!game) return;
@@ -1966,20 +2263,29 @@ function openGameModal(id, origin) {
     }
 
     const modalContent = document.getElementById('gameModalContent');
-    let embedHTML = game.embed ? `
-        <h4 style="color:var(--neon-red); margin: 20px 0 10px 0;"><i class="fas fa-video"></i> Tutorial / Demo:</h4>
-        <div class="embed-video-container">${game.embed}</div>
-    ` : '';
-
-    const versions = (game.versions && game.versions.length > 0) ? game.versions : [
-        { name: "Versión Portable", downloadUrl: game.downloadUrl || "#", server: game.server || "MediaFire" }
+    const embedUrl = getSafeEmbedUrl(game.embed);
+    const rawVersions = Array.isArray(game.versions) && game.versions.length > 0 ? game.versions : [
+        { name: "Versión Portable", downloadUrl: game.downloadUrl, server: game.server || "MediaFire" }
     ];
-
-    const firstVersion = versions[0];
+    const versions = rawVersions.map((version, sourceIndex) => ({
+        ...version,
+        name: typeof version.name === 'string' ? version.name : 'Versión',
+        server: typeof version.server === 'string' ? version.server : 'Servidor externo',
+        downloadUrl: getSafeExternalUrl(version.downloadUrl),
+        sourceIndex
+    })).filter(version => version.downloadUrl);
+    if (versions.length === 0) {
+        versions.push({ name: 'Descarga no disponible', server: 'Sin enlace válido', downloadUrl: '', sourceIndex: -1 });
+    }
+    const recommendedVersionIndex = Math.max(0, versions.findIndex(version => version.recommended));
+    const firstVersion = versions[recommendedVersionIndex];
     const genresFormatted = formatGameGenres(game.category);
+    const fixOnlineUrl = getSafeExternalUrl(game.fixOnlineUrl);
+    const portRepositoryUrl = getSafeExternalUrl(game.portRepositoryUrl);
+    const portDownloadUrl = getSafeExternalUrl(game.portDownloadUrl);
 
     let fixOnlineHTML = '';
-    if (game.fixOnlineUrl) {
+    if (fixOnlineUrl) {
         fixOnlineHTML = `
             <div class="fix-online-display-box">
                 <h4 style="color:#00ff80; margin-bottom: 5px; font-family: var(--font-head); font-size: 0.95rem;">
@@ -1988,7 +2294,7 @@ function openGameModal(id, origin) {
                 <p style="color:#ccc; font-size: 0.85rem;">
                     ${escapeGameHTML(game.fixOnlineServer || 'Servidor Online / Steam Fix')}
                 </p>
-                <a href="${escapeGameHTML(game.fixOnlineUrl)}" target="_blank" rel="noopener noreferrer" class="btn-fix-online-dl">
+                <a href="${escapeGameHTML(fixOnlineUrl)}" target="_blank" rel="noopener noreferrer" class="btn-fix-online-dl">
                     <i class="fas fa-download"></i> DESCARGAR FIX ONLINE
                 </a>
             </div>
@@ -1999,7 +2305,7 @@ function openGameModal(id, origin) {
         <div class="lb-game-detail">
           <section class="lb-game-detail-hero">
             <div class="lb-game-artwork">
-              <img class="lb-game-cover" src="${escapeGameHTML(game.image || 'assets/img/favicon.png')}" alt="Portada de ${escapeGameHTML(game.title)}" onerror="this.onerror=null;this.src='assets/img/favicon.png';">
+              <img class="lb-game-cover" src="${escapeGameHTML(getSafeMediaUrl(game.image) || 'assets/img/favicon.png')}" alt="Portada de ${escapeGameHTML(game.title)}">
               <span class="lb-game-loot-label"><i></i> JUEGO DESBLOQUEADO</span>
               <span class="lb-game-art-glint"></span>
             </div>
@@ -2009,30 +2315,31 @@ function openGameModal(id, origin) {
               <p class="lb-game-description">${escapeGameHTML(game.desc || 'Descubre versiones, requisitos y consejos para empezar a jugar.').replace(/\n/g, '<br>')}</p>
               <div class="lb-game-facts"><span><i class="fas fa-hard-drive"></i> ${escapeGameHTML(game.size || 'Tama&ntilde;o por confirmar')}</span><span><i class="fas fa-download"></i> ${Number(game.downloadsCount || 0).toLocaleString('es-PE')} descargas</span><span><i class="fas fa-gamepad"></i> ${game.gamepadStatus ? 'Compatible con mando' : 'Teclado / Touch'}</span></div>
               <div class="lb-game-primary-actions">
-                <button type="button" class="lb-game-wishlist ${favorites.includes(id) ? 'is-saved' : ''}" onclick="toggleFav(event, '${escapeGameHTML(id)}'); this.classList.toggle('is-saved'); this.querySelector('span').textContent = this.classList.contains('is-saved') ? 'GUARDADO EN MI LISTA' : 'GUARDAR EN MI LISTA';" aria-label="${favorites.includes(id) ? 'Quitar de mi lista' : 'Guardar en mi lista'}"><i class="fas fa-heart"></i><span>${favorites.includes(id) ? 'GUARDADO EN MI LISTA' : 'GUARDAR EN MI LISTA'}</span></button>
+                <button type="button" class="lb-game-wishlist ${favorites.includes(id) ? 'is-saved' : ''}" aria-label="${favorites.includes(id) ? 'Quitar de mi lista' : 'Guardar en mi lista'}"><i class="fas fa-heart"></i><span>${favorites.includes(id) ? 'GUARDADO EN MI LISTA' : 'GUARDAR EN MI LISTA'}</span></button>
               </div>
               <div class="version-select-box lb-version-panel">
                 <div class="version-custom-dropdown">
-                  <button type="button" class="btn-version-dropdown" id="btnDropdownVersions" onclick="toggleVersionMenu(event)">
-                    <div class="version-title-group"><i class="fas fa-box-open"></i><span id="displaySelectedVersionName">${escapeGameHTML(firstVersion.name)}</span><i class="fas fa-chevron-down arrow-ver-icon"></i></div>
-                    <span class="mediafire-badge" id="displaySelectedVersionServer"><i class="fas fa-cloud-download-alt"></i> ${escapeGameHTML(firstVersion.server || 'MediaFire')}</span>
+                  <button type="button" class="btn-version-dropdown" id="btnDropdownVersions">
+                    <div class="version-title-group"><i class="fas fa-box-open"></i><span id="displaySelectedVersionName">${escapeGameHTML(firstVersion.name)}</span><span class="lb-version-recommended-badge" id="displaySelectedVersionRecommended" ${firstVersion.recommended ? '' : 'hidden'}><i class="fas fa-star"></i> Recomendada</span><i class="fas fa-chevron-down arrow-ver-icon"></i></div>
+                    <span class="mediafire-badge" id="displaySelectedVersionServer"><i class="fas fa-cloud-download-alt"></i> ${escapeGameHTML(firstVersion.server)}</span>
                   </button>
                   <div class="version-dropdown-list" id="versionDropdownList">
-                    ${versions.map((version, index) => `<div class="version-dropdown-item ${index === 0 ? 'active' : ''}" onclick="selectVersionFromDropdown(${index}, '${escapeGameHTML(id)}')"><div class="ver-item-info"><strong>${escapeGameHTML(version.name)}</strong><small>Servidor: ${escapeGameHTML(version.server || 'Servidor externo')}</small></div><i class="fas fa-check check-mark"></i></div>`).join('')}
+                    ${versions.map((version, index) => `<div class="version-dropdown-item ${index === recommendedVersionIndex ? 'active' : ''}" data-source-index="${version.sourceIndex}"><div class="ver-item-info"><strong>${escapeGameHTML(version.name)}</strong><small>Servidor: ${escapeGameHTML(version.server)}</small>${version.recommended ? '<span class="lb-version-recommended-option"><i class="fas fa-star"></i> RECOMENDADA</span>' : ''}</div><i class="fas fa-check check-mark"></i></div>`).join('')}
                   </div>
                 </div>
-                <a href="${escapeGameHTML(firstVersion.downloadUrl)}" target="_blank" rel="noopener noreferrer" id="btnMainDownloadUrl" onclick="trackDownload('${escapeGameHTML(id)}')" class="btn-primary full-width lb-game-download"><i class="fas fa-download"></i> DESCARGAR JUEGO <span>(<b id="btnDownloadServerText">${escapeGameHTML(firstVersion.server || 'MediaFire')}</b>)</span></a>
-                <button type="button" class="report-btn-link lb-report-link" onclick="reportGameLink('${escapeGameHTML(id)}', '${escapeGameHTML(game.title)}')"><i class="fas fa-triangle-exclamation"></i> Reportar enlace roto</button>
+                <a href="${escapeGameHTML(firstVersion.downloadUrl || '#')}" ${firstVersion.downloadUrl ? '' : 'aria-disabled="true" tabindex="-1"'} target="_blank" rel="noopener noreferrer" id="btnMainDownloadUrl" class="btn-primary full-width lb-game-download"><i class="fas fa-download"></i> DESCARGAR JUEGO <span>(<b id="btnDownloadServerText">${escapeGameHTML(firstVersion.server)}</b>)</span></a>
+                <button type="button" class="report-btn-link lb-report-link"><i class="fas fa-triangle-exclamation"></i> Reportar enlace roto</button>
               </div>
             </div>
           </section>
+          ${portRepositoryUrl || portDownloadUrl ? `<section class="lb-game-extra-panel lb-game-files-panel"><div class="lb-game-panel-heading"><span class="lb-game-panel-icon"><i class="fas fa-box-archive"></i></span><div><span class="lb-overline">ARCHIVOS DEL JUEGO</span><h3>Opciones del port</h3></div></div><div class="lb-game-file-actions">${portRepositoryUrl ? `<a class="lb-port-repository" href="${escapeGameHTML(portRepositoryUrl)}" target="_blank" rel="noopener noreferrer"><i class="fab fa-github"></i> VER REPOSITORIO OFICIAL <i class="fas fa-arrow-up-right-from-square"></i></a>` : ''}${portDownloadUrl ? `<a class="btn-primary lb-port-download" href="${escapeGameHTML(portDownloadUrl)}" target="_blank" rel="noopener noreferrer"><i class="fas fa-download"></i> DESCARGAR JUEGO PORTADO</a>` : ''}</div></section>` : ''}
           ${fixOnlineHTML ? `<section class="lb-game-extra-panel lb-game-fix-panel">${fixOnlineHTML}</section>` : ''}
           <section class="lb-game-system-panel">
             <div class="lb-game-panel-heading"><span class="lb-game-panel-icon"><i class="fas fa-sliders"></i></span><div><span class="lb-overline">ANTES DE INSTALAR</span><h3>Requisitos del sistema</h3></div></div>
             <div class="lb-spec-grid"><div><small>SISTEMA OPERATIVO</small><strong>${escapeGameHTML(game.specs?.so || 'Windows / Android')}</strong></div><div><small>PROCESADOR</small><strong>${escapeGameHTML(game.specs?.cpu || 'Quad Core')}</strong></div><div><small>MEMORIA RAM</small><strong>${escapeGameHTML(game.specs?.ram || '4 GB')}</strong></div><div><small>GR&Aacute;FICOS</small><strong>${escapeGameHTML(game.specs?.gpu || 'Integrados')}</strong></div></div>
           </section>
           ${game.installGuide ? `<section class="lb-game-guide"><div class="lb-game-panel-heading"><span class="lb-game-panel-icon"><i class="fas fa-list-check"></i></span><div><span class="lb-overline">PASO A PASO</span><h3>Gu&iacute;a de descarga e instalaci&oacute;n</h3></div></div><div class="lb-game-guide-copy">${escapeGameHTML(game.installGuide)}</div></section>` : `<section class="lb-game-guide is-empty"><div class="lb-game-panel-heading"><span class="lb-game-panel-icon"><i class="fas fa-circle-info"></i></span><div><span class="lb-overline">RECOMENDACI&Oacute;N</span><h3>Revisa antes de instalar</h3></div></div><p>Compara los requisitos y la versi&oacute;n elegida. Si el archivo incluye un README o instrucciones propias, s&iacute;guelos para completar la instalaci&oacute;n.</p></section>`}
-        ${embedHTML}
+        ${embedUrl ? '<h4 style="color:var(--neon-red); margin: 20px 0 10px 0;"><i class="fas fa-video"></i> Tutorial / Demo:</h4><div class="embed-video-container"><iframe title="Tutorial o demostración del juego" src="' + escapeGameHTML(embedUrl) + '" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe></div>' : ''}
 
         <div class="game-comments-section">
             <h3 class="game-comments-title"><i class="fas fa-star" style="color:#ffca28;"></i> Reseñas & Comentarios</h3>
@@ -2090,6 +2397,28 @@ function openGameModal(id, origin) {
             </div>
         </div>
     `;
+
+    const cover = modalContent.querySelector('.lb-game-cover');
+    cover.addEventListener('error', () => { cover.src = 'assets/img/favicon.png'; }, { once: true });
+    const wishlistButton = modalContent.querySelector('.lb-game-wishlist');
+    wishlistButton.addEventListener('click', event => {
+        toggleFav(event, id);
+        const saved = favorites.includes(id);
+        wishlistButton.classList.toggle('is-saved', saved);
+        wishlistButton.setAttribute('aria-label', saved ? 'Quitar de mi lista' : 'Guardar en mi lista');
+        wishlistButton.querySelector('span').textContent = saved ? 'GUARDADO EN MI LISTA' : 'GUARDAR EN MI LISTA';
+    });
+    modalContent.querySelector('#btnDropdownVersions').addEventListener('click', toggleVersionMenu);
+    modalContent.querySelectorAll('.version-dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const sourceIndex = Number(item.dataset.sourceIndex);
+            if (sourceIndex >= 0) window.selectVersionFromDropdown(sourceIndex, id);
+        });
+    });
+    if (firstVersion.downloadUrl) {
+        modalContent.querySelector('#btnMainDownloadUrl').addEventListener('click', () => window.trackDownload(id));
+    }
+    modalContent.querySelector('.lb-report-link').addEventListener('click', () => window.reportGameLink(id, String(game.title || 'Juego')));
 
     const gameModal = document.getElementById('gameModal');
     const gameDialog = gameModal.querySelector('.game-modal-box');
@@ -2197,14 +2526,22 @@ window.selectVersionFromDropdown = function(index, gameId) {
     if (!game || !game.versions || !game.versions[index]) return;
 
     const selectedVer = game.versions[index];
+    const downloadUrl = getSafeExternalUrl(selectedVer.downloadUrl);
+    if (!downloadUrl) return;
 
-    document.getElementById('displaySelectedVersionName').textContent = selectedVer.name;
-    document.getElementById('displaySelectedVersionServer').innerHTML = `<i class="fas fa-cloud-download-alt"></i> ${selectedVer.server || 'MediaFire'}`;
-    document.getElementById('btnDownloadServerText').textContent = selectedVer.server || 'MediaFire';
-    document.getElementById('btnMainDownloadUrl').href = selectedVer.downloadUrl;
+    document.getElementById('displaySelectedVersionName').textContent = String(selectedVer.name || 'Versión');
+    document.getElementById('displaySelectedVersionRecommended').hidden = !selectedVer.recommended;
+    const serverLabel = String(selectedVer.server || 'MediaFire');
+    const serverBadge = document.getElementById('displaySelectedVersionServer');
+    serverBadge.replaceChildren();
+    const serverIcon = document.createElement('i');
+    serverIcon.className = 'fas fa-cloud-download-alt';
+    serverBadge.append(serverIcon, document.createTextNode(` ${serverLabel}`));
+    document.getElementById('btnDownloadServerText').textContent = serverLabel;
+    document.getElementById('btnMainDownloadUrl').href = downloadUrl;
 
-    document.querySelectorAll('.version-dropdown-item').forEach((item, idx) => {
-        if (idx === index) item.classList.add('active');
+    document.querySelectorAll('.version-dropdown-item').forEach(item => {
+        if (item.dataset.sourceIndex === String(index)) item.classList.add('active');
         else item.classList.remove('active');
     });
 
@@ -2268,34 +2605,47 @@ function initGameComments(gameId) {
 
         commentsArray.reverse().forEach(c => {
             totalRating += (c.rating || 5);
-            const starsHTML = '★'.repeat(c.rating || 5) + '☆'.repeat(5 - (c.rating || 5));
-            const dateStr = new Date(c.timestamp).toLocaleDateString();
-
-            const mediaPattern = /(https?:\/\/.*\.(?:png|jpg|jpeg|gif|webp)(?:\?.*)?|https?:\/\/cdn\.discordapp\.com\/attachments\/[^\s]+|https?:\/\/media\.giphy\.com\/[^\s]+|data:image\/[a-zA-Z]+;base64,[^\s]+)/i;
-            let formattedText = c.text || '';
-
-            if (mediaPattern.test(formattedText)) {
-                formattedText = formattedText.replace(mediaPattern, (url) => {
-                    return `<br><img src="${url}" class="chat-msg-img" loading="lazy" decoding="async" onclick="openImageModal('${url}')" title="Ampliar media" onerror="this.onerror=null;this.src='${PLACEHOLDER_IMAGE}';">`;
-                });
-            }
-            formattedText += renderStoredMedia(c.mediaUrl, c.mediaType);
+            const rating = Number.isFinite(Number(c.rating)) ? Math.min(5, Math.max(0, Math.round(Number(c.rating)))) : 5;
+            const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+            const timestamp = Number(c.timestamp);
+            const dateStr = Number.isFinite(timestamp) ? new Date(timestamp).toLocaleDateString() : '';
 
             const item = document.createElement('div');
             item.className = 'comment-item';
             const authorUid = typeof c.authorUid === 'string' && c.authorUid.length <= 128 ? c.authorUid : '';
-            item.innerHTML = `
-                <img src="${c.avatar}" alt="${c.author}" loading="lazy" decoding="async" onclick="openPublicProfile('${c.author}', '${c.avatar}')" onerror="this.onerror=null;this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Guest';">
-                <div class="comment-main">
-                    <div class="comment-header">
-                        <span class="comment-author" data-author-uid="${escapeGameHTML(authorUid)}" onclick="openPublicProfile('${c.author}', '${c.avatar}')">${c.author}</span>
-                        <span class="comment-date">${dateStr}</span>
-                    </div>
-                    <div class="comment-stars">${starsHTML}</div>
-                    <p class="comment-text">${formattedText}</p>
-                </div>
-            `;
-            appendCommunityMissionBadge(item.querySelector('.comment-author'), authorUid);
+            const authorName = typeof c.author === 'string' ? c.author : 'Usuario';
+            const avatarUrl = getSafeMediaUrl(c.avatar) || 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest';
+            const avatar = document.createElement('img');
+            avatar.src = avatarUrl;
+            avatar.alt = authorName;
+            avatar.loading = 'lazy';
+            avatar.decoding = 'async';
+            avatar.addEventListener('click', () => window.openPublicProfile?.(authorName, avatarUrl));
+            avatar.addEventListener('error', () => { avatar.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=Guest'; }, { once: true });
+
+            const main = document.createElement('div');
+            main.className = 'comment-main';
+            const header = document.createElement('div');
+            header.className = 'comment-header';
+            const author = document.createElement('span');
+            author.className = 'comment-author';
+            author.dataset.authorUid = authorUid;
+            author.textContent = authorName;
+            author.addEventListener('click', () => window.openPublicProfile?.(authorName, avatarUrl));
+            const date = document.createElement('span');
+            date.className = 'comment-date';
+            date.textContent = dateStr;
+            header.append(author, date);
+            const starDisplay = document.createElement('div');
+            starDisplay.className = 'comment-stars';
+            starDisplay.textContent = stars;
+            const messageText = document.createElement('p');
+            messageText.className = 'comment-text';
+            appendMessageText(messageText, c.text);
+            appendStoredMedia(messageText, c.mediaUrl, c.mediaType);
+            main.append(header, starDisplay, messageText);
+            item.append(avatar, main);
+            appendCommunityMissionBadge(author, authorUid);
             container.appendChild(item);
         });
 
@@ -2313,10 +2663,11 @@ function initGameComments(gameId) {
     });
 }
 
-function addVersionField(name = '', downloadUrl = '', server = 'MediaFire') {
+function addVersionField(name = '', downloadUrl = '', server = 'MediaFire', recommended = false) {
     const container = document.getElementById('versionsListContainer');
     if (!container) return;
 
+    const shouldRecommend = recommended || container.children.length === 0;
     const row = document.createElement('div');
     row.className = 'version-item-row';
     row.innerHTML = `
@@ -2324,17 +2675,18 @@ function addVersionField(name = '', downloadUrl = '', server = 'MediaFire') {
         <div class="form-row">
             <div class="form-group" style="margin-bottom:6px;">
                 <label>Nombre de la Versión</label>
-                <input type="text" class="ver-name" placeholder="Ej: Portable / v1.0" value="${name}" required>
+                <input type="text" class="ver-name" placeholder="Ej: Portable / v1.0" value="${escapeGameHTML(name)}" required>
             </div>
             <div class="form-group" style="margin-bottom:6px;">
                 <label>Servidor</label>
-                <input type="text" class="ver-server" placeholder="MediaFire" value="${server || 'MediaFire'}">
+                <input type="text" class="ver-server" placeholder="MediaFire" value="${escapeGameHTML(server || 'MediaFire')}">
             </div>
         </div>
         <div class="form-group" style="margin-bottom:0;">
             <label>Link Directo</label>
-            <input type="url" class="ver-url" placeholder="https://..." value="${downloadUrl}" required>
+            <input type="url" class="ver-url" placeholder="https://..." value="${escapeGameHTML(downloadUrl)}" required>
         </div>
+        <label class="version-recommended-control"><input type="radio" class="ver-recommended" name="adminRecommendedVersion" ${shouldRecommend ? 'checked' : ''} required> Usar como versión recomendada</label>
     `;
     container.appendChild(row);
 }
@@ -2342,7 +2694,10 @@ function addVersionField(name = '', downloadUrl = '', server = 'MediaFire') {
 window.removeVersionField = function(btn) {
     const container = document.getElementById('versionsListContainer');
     if (container.children.length > 1) {
-        btn.closest('.version-item-row').remove();
+        const row = btn.closest('.version-item-row');
+        const wasRecommended = row.querySelector('.ver-recommended').checked;
+        row.remove();
+        if (wasRecommended) container.querySelector('.ver-recommended').checked = true;
     } else {
         alert("El juego debe tener al menos una versión registrada.");
     }
@@ -2359,7 +2714,12 @@ function getVersionsFromForm() {
         const downloadUrl = row.querySelector('.ver-url').value.trim();
 
         if (name && downloadUrl) {
-            versions.push({ name, server, downloadUrl });
+            versions.push({
+                name,
+                server,
+                downloadUrl,
+                recommended: row.querySelector('.ver-recommended').checked
+            });
         }
     });
     return versions;
@@ -2378,13 +2738,46 @@ function populateAdminAdGameOptions(selectedId = '') {
 function renderAdminAdsList() {
     const container = document.getElementById('adminAdsList');
     if (!container) return;
-    container.innerHTML = loadedAds.length ? loadedAds.map(ad => {
+    container.replaceChildren();
+    if (!loadedAds.length) {
+        const empty = document.createElement('p');
+        empty.style.color = '#888';
+        empty.textContent = 'Todavía no hay anuncios configurados.';
+        container.appendChild(empty);
+        return;
+    }
+
+    loadedAds.forEach(ad => {
         const game = loadedGames.find(item => item.id === ad.targetGameId);
-        return `<div class="admin-list-item">
-            <div><strong>${escapeGameHTML(ad.title)}</strong><small style="color:#aaa;display:block;">${ad.active ? 'Activo' : 'Inactivo'} · ${escapeGameHTML(game ? game.title : 'Destino no disponible')} · cada ${Number(ad.intervalMinutes) || 30} min</small></div>
-            <div><button type="button" onclick="editAdminAd('${escapeGameHTML(ad.id)}')" style="background:none;border:0;color:#ffa500;cursor:pointer;margin-right:8px;"><i class="fas fa-edit"></i></button><button type="button" onclick="deleteAdminAd('${escapeGameHTML(ad.id)}')" style="background:none;border:0;color:#ff4444;cursor:pointer;"><i class="fas fa-trash"></i></button></div>
-        </div>`;
-    }).join('') : '<p style="color:#888;">Todavía no hay anuncios configurados.</p>';
+        const item = document.createElement('div');
+        item.className = 'admin-list-item';
+        const details = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = typeof ad.title === 'string' ? ad.title : 'Anuncio';
+        const description = document.createElement('small');
+        description.style.color = '#aaa';
+        description.style.display = 'block';
+        description.textContent = `${ad.active ? 'Activo' : 'Inactivo'} · ${game && typeof game.title === 'string' ? game.title : 'Destino no disponible'} · cada ${Number(ad.intervalMinutes) || 30} min`;
+        details.append(title, description);
+        const actions = document.createElement('div');
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.title = 'Editar anuncio';
+        edit.setAttribute('aria-label', `Editar ${title.textContent}`);
+        edit.style.cssText = 'background:none;border:0;color:#ffa500;cursor:pointer;margin-right:8px;';
+        edit.innerHTML = '<i class="fas fa-edit"></i>';
+        edit.addEventListener('click', () => window.editAdminAd(ad.id));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.title = 'Eliminar anuncio';
+        remove.setAttribute('aria-label', `Eliminar ${title.textContent}`);
+        remove.style.cssText = 'background:none;border:0;color:#ff4444;cursor:pointer;';
+        remove.innerHTML = '<i class="fas fa-trash"></i>';
+        remove.addEventListener('click', () => window.deleteAdminAd(ad.id));
+        actions.append(edit, remove);
+        item.append(details, actions);
+        container.appendChild(item);
+    });
 }
 
 function resetAdminAdForm() {
@@ -2526,6 +2919,8 @@ function openAdminEditModal(e, id) {
     document.getElementById('adminGamepadStatus').value = game.gamepadStatus ? "true" : "false";
     document.getElementById('adminFixServer').value = game.fixOnlineServer || '';
     document.getElementById('adminFixUrl').value = game.fixOnlineUrl || '';
+    document.getElementById('adminPortRepositoryUrl').value = game.portRepositoryUrl || '';
+    document.getElementById('adminPortDownloadUrl').value = game.portDownloadUrl || '';
     document.getElementById('adminFeatured').checked = !!game.featured;
 
     const selectCat = document.getElementById('adminCategory');
@@ -2544,7 +2939,13 @@ function openAdminEditModal(e, id) {
     const versionsContainer = document.getElementById('versionsListContainer');
     versionsContainer.innerHTML = '';
     if (game.versions && game.versions.length > 0) {
-        game.versions.forEach(v => addVersionField(v.name, v.downloadUrl, v.server));
+        const hasRecommendedVersion = game.versions.some(version => version.recommended);
+        game.versions.forEach((version, index) => addVersionField(
+            version.name,
+            version.downloadUrl,
+            version.server,
+            version.recommended || (!hasRecommendedVersion && index === 0)
+        ));
     } else {
         addVersionField("Versión Portable", game.downloadUrl || '', game.server || 'MediaFire');
     }
@@ -2645,6 +3046,9 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
     const gamepadStatus = document.getElementById('adminGamepadStatus').value === "true";
     const fixOnlineServer = document.getElementById('adminFixServer').value.trim();
     const fixOnlineUrl = document.getElementById('adminFixUrl').value.trim();
+    const portRepositoryUrl = document.getElementById('adminPortRepositoryUrl').value.trim();
+    const portDownloadUrl = document.getElementById('adminPortDownloadUrl').value.trim();
+    const embedInput = document.getElementById('adminEmbed').value.trim();
     const featured = document.getElementById('adminFeatured').checked;
 
     const selectCat = document.getElementById('adminCategory');
@@ -2673,9 +3077,13 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
         gamepadStatus,
         fixOnlineServer,
         fixOnlineUrl,
+        portRepositoryUrl,
+        portDownloadUrl,
         featured,
         downloadsCount,
-        downloadUrl: versions.length > 0 ? versions[0].downloadUrl : "#",
+        downloadUrl: versions.length > 0
+            ? (versions.find(version => version.recommended) || versions[0]).downloadUrl
+            : "#",
         versions: versions,
         specs: {
             so: document.getElementById('adminSo').value.trim(),
@@ -2683,11 +3091,27 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
             ram: document.getElementById('adminRam').value.trim(),
             gpu: document.getElementById('adminGpu').value.trim()
         },
-        embed: document.getElementById('adminEmbed').value.trim(),
+        embed: '',
         installGuide: document.getElementById('adminGuide').value.trim()
     };
 
     try {
+        for (const [label, value] of [
+            ['El enlace del FIX online', fixOnlineUrl],
+            ['El repositorio oficial', portRepositoryUrl],
+            ['La descarga del port', portDownloadUrl],
+            ...versions.map((version, index) => [`La descarga de la versión ${index + 1}`, version.downloadUrl])
+        ]) {
+            if (!value) continue;
+            const url = new URL(value);
+            if (url.protocol !== 'https:' || url.username || url.password) {
+                throw new Error(`${label} debe usar una URL HTTPS válida.`);
+            }
+        }
+        gameData.embed = getSafeEmbedUrl(embedInput);
+        if (embedInput && !gameData.embed) {
+            throw new Error('El tutorial debe ser un enlace de inserción HTTPS de YouTube, Vimeo o Twitch.');
+        }
         if (!usesLegacyCatalogImage) {
             await validateImageAspectRatio(catalogImage, 1.6, "La imagen del catálogo");
         }
@@ -2711,39 +3135,51 @@ document.getElementById('formAdminGame').addEventListener('submit', async (e) =>
     });
 });
 
+function renderAdminGameRows(container, games) {
+    container.replaceChildren();
+    games.forEach(game => {
+        const item = document.createElement('div');
+        item.className = 'admin-list-item';
+        const details = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = typeof game.title === 'string' ? game.title : 'Juego';
+        const downloads = document.createElement('small');
+        downloads.style.color = '#aaa';
+        downloads.style.display = 'block';
+        downloads.textContent = `Descargas: ${Number(game.downloadsCount) || 0}`;
+        details.append(title, downloads);
+        const actions = document.createElement('div');
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.title = 'Editar juego';
+        edit.setAttribute('aria-label', `Editar ${title.textContent}`);
+        edit.style.cssText = 'background:none;border:none;color:#ffa500;cursor:pointer;margin-right:8px;';
+        edit.innerHTML = '<i class="fas fa-edit"></i>';
+        edit.addEventListener('click', event => openAdminEditModal(event, game.id));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.title = 'Eliminar juego';
+        remove.setAttribute('aria-label', `Eliminar ${title.textContent}`);
+        remove.style.cssText = 'background:none;border:none;color:#ff4444;cursor:pointer;';
+        remove.innerHTML = '<i class="fas fa-trash"></i>';
+        remove.addEventListener('click', () => window.deleteGame(game.id));
+        actions.append(edit, remove);
+        item.append(details, actions);
+        container.appendChild(item);
+    });
+}
+
 function renderAdminGamesList() {
     const container = document.getElementById('adminGamesListContainer');
     if (!container) return;
-    container.innerHTML = loadedGames.map(g => `
-        <div class="admin-list-item">
-            <div>
-                <strong>${g.title}</strong>
-                <small style="color:#aaa; display:block;">Descargas: ${g.downloadsCount || 0}</small>
-            </div>
-            <div>
-                <button type="button" onclick="openAdminEditModal(event, '${g.id}')" style="background:none; border:none; color:#ffa500; cursor:pointer; margin-right:8px;"><i class="fas fa-edit"></i></button>
-                <button type="button" onclick="deleteGame('${g.id}')" style="background:none; border:none; color:#ff4444; cursor:pointer;"><i class="fas fa-trash"></i></button>
-            </div>
-        </div>
-    `).join('');
+    renderAdminGameRows(container, loadedGames);
 }
 
 window.filterAdminGamesList = function() {
     const query = document.getElementById('adminGameSearchInput').value.toLowerCase();
-    const filtered = loadedGames.filter(g => g.title.toLowerCase().includes(query));
+    const filtered = loadedGames.filter(g => String(g.title || '').toLowerCase().includes(query));
     const container = document.getElementById('adminGamesListContainer');
-    container.innerHTML = filtered.map(g => `
-        <div class="admin-list-item">
-            <div>
-                <strong>${g.title}</strong>
-                <small style="color:#aaa; display:block;">Descargas: ${g.downloadsCount || 0}</small>
-            </div>
-            <div>
-                <button type="button" onclick="openAdminEditModal(event, '${g.id}')" style="background:none; border:none; color:#ffa500; cursor:pointer; margin-right:8px;"><i class="fas fa-edit"></i></button>
-                <button type="button" onclick="deleteGame('${g.id}')" style="background:none; border:none; color:#ff4444; cursor:pointer;"><i class="fas fa-trash"></i></button>
-            </div>
-        </div>
-    `).join('');
+    renderAdminGameRows(container, filtered);
 };
 
 window.deleteGame = function(id) {
@@ -2765,12 +3201,20 @@ document.getElementById('formAdminGenre').addEventListener('submit', (e) => {
 function renderAdminGenres() {
     const list = document.getElementById('adminGenreList');
     if (!list) return;
-    list.innerHTML = loadedGenres.map(g => `
-        <span class="genre-tag-item">
-            ${g.name}
-            <button type="button" class="btn-del-mini" onclick="deleteGenre('${g.name}')">&times;</button>
-        </span>
-    `).join('');
+    list.replaceChildren();
+    loadedGenres.forEach(genre => {
+        const item = document.createElement('span');
+        item.className = 'genre-tag-item';
+        item.append(document.createTextNode(genre.name));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'btn-del-mini';
+        remove.textContent = '×';
+        remove.setAttribute('aria-label', `Eliminar categoría ${genre.name}`);
+        remove.addEventListener('click', () => window.deleteGenre(genre.name));
+        item.appendChild(remove);
+        list.appendChild(item);
+    });
 }
 
 window.deleteGenre = function(name) {
@@ -2794,18 +3238,35 @@ document.getElementById('formAdminNews').addEventListener('submit', (e) => {
 function renderAdminNews() {
     const list = document.getElementById('adminNewsList');
     if (!list) return;
-    list.innerHTML = loadedNews.map(n => `
-        <div class="admin-list-item">
-            <div>
-                <strong>${n.title}</strong>
-                <small style="color:#aaa; display:block;">${n.date}</small>
-            </div>
-            <div>
-                <button type="button" onclick="editNews('${n.id}')" style="background:none; border:none; color:#ffa500; cursor:pointer; margin-right:8px;"><i class="fas fa-edit"></i></button>
-                <button type="button" onclick="deleteNews('${n.id}')" style="background:none; border:none; color:#ff4444; cursor:pointer;"><i class="fas fa-trash"></i></button>
-            </div>
-        </div>
-    `).join('');
+    list.replaceChildren();
+    loadedNews.forEach(news => {
+        const item = document.createElement('div');
+        item.className = 'admin-list-item';
+        const details = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = typeof news.title === 'string' ? news.title : '';
+        const date = document.createElement('small');
+        date.style.color = '#aaa';
+        date.style.display = 'block';
+        date.textContent = typeof news.date === 'string' ? news.date : '';
+        details.append(title, date);
+        const actions = document.createElement('div');
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.title = 'Editar noticia';
+        edit.setAttribute('aria-label', 'Editar noticia');
+        edit.innerHTML = '<i class="fas fa-edit"></i>';
+        edit.addEventListener('click', () => window.editNews(news.id));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.title = 'Eliminar noticia';
+        remove.setAttribute('aria-label', 'Eliminar noticia');
+        remove.innerHTML = '<i class="fas fa-trash"></i>';
+        remove.addEventListener('click', () => window.deleteNews(news.id));
+        actions.append(edit, remove);
+        item.append(details, actions);
+        list.appendChild(item);
+    });
 }
 
 window.editNews = function(id) {

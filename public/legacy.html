@@ -408,10 +408,28 @@
                         </div>
                     </div>
 
+                    <div class="game-files-box-admin">
+                        <h4><i class="fas fa-box-archive"></i> Archivos del juego (Opcional)</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Repositorio oficial del port (GitHub)</label>
+                                <input type="url" id="adminPortRepositoryUrl" placeholder="https://github.com/usuario/proyecto">
+                            </div>
+                            <div class="form-group">
+                                <label>Descarga del juego portado</label>
+                                <input type="url" id="adminPortDownloadUrl" placeholder="https://...">
+                            </div>
+                        </div>
+                        <small>Completa estos enlaces solo si el juego incluye un port. Se mostrarán como opciones separadas en su ficha.</small>
+                    </div>
+
                     <!-- GESTIÓN DE VERSIONES -->
                     <div class="versions-section-container">
                         <div class="versions-header">
-                            <h4 style="color:var(--neon-red);"><i class="fas fa-code-branch"></i> Versiones del Juego</h4>
+                            <div>
+                                <h4 style="color:var(--neon-red);"><i class="fas fa-code-branch"></i> Versiones del Juego</h4>
+                                <small>Elige una versión recomendada para que aparezca seleccionada primero.</small>
+                            </div>
                             <button type="button" class="btn-secondary btn-sm" id="btnAddVersionField">
                                 <i class="fas fa-plus-circle"></i> Agregar Versión
                             </button>

@@ -40,7 +40,7 @@ const mimeExtensions = new Map([
   ["video/mp4", "mp4"],
   ["video/webm", "webm"],
 ]);
-const allowedScopes = new Set(["chat", "private", "comments", "hero", "ads", "mission-evidence", "mission-video", "mission-cover", "based-game-cover", "based-game-preview"]);
+const allowedScopes = new Set(["chat", "comments", "hero", "ads", "mission-evidence", "mission-video", "mission-cover", "based-game-cover", "based-game-preview"]);
 let firebaseAccessToken = "";
 let firebaseAccessTokenExpiresAt = 0;
 
@@ -716,6 +716,9 @@ async function handleMissionsApi(request, response, user, path) {
 
 async function handleUpload(request, response, user) {
   const scope = request.headers["x-media-scope"];
+  if (scope === "private") {
+    return send(response, 403, { error: "La multimedia de mensajes privados está pausada hasta disponer de almacenamiento privado con acceso restringido." });
+  }
   const mime = (request.headers["content-type"] || "").split(";")[0].toLowerCase();
   const extension = mimeExtensions.get(mime);
   const isMissionEvidence = scope === "mission-evidence" || scope === "mission-video";
